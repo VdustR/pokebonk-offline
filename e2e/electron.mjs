@@ -10,7 +10,8 @@ const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-e2e-'));
 const metadata=JSON.parse(await readFile(path.join(game,'offline-build.json'),'utf8'));
 const options={env:{...process.env,POKEBONK_GAME_DIR:game,POKEBONK_USER_DATA_DIR:userData},timeout:120000,args:executablePath?[]:['desktop/main.mjs']};
 if(executablePath)options.executablePath=path.resolve(executablePath);
-if(process.env.CI)options.args.push('--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader');
+// SwiftShader is required for headless Linux; macOS uses its native Metal backend.
+if(process.env.CI && process.platform==='linux')options.args.push('--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader');
 await mkdir('evidence',{recursive:true});
 let app;
 const errors=[],missing=[],external=[];
@@ -28,4 +29,14 @@ try {
   assert.equal(await page.evaluate(()=>fetch('https://example.com/').then(()=>false,()=>true)),true,'Network must be blocked');
   await writeFile('evidence/electron-network.json',JSON.stringify({gameRequests,missing,errors,networkBlocked:true},null,2));
   console.log('Electron runtime, unlocks, persistence and network isolation passed.');
+} catch(error) {
+  if(app) {
+    const pages=app.windows();
+    const page=pages[0];
+    if(page) {
+      await page.screenshot({path:'evidence/electron-failure.png'}).catch(()=>{});
+      await writeFile('evidence/electron-failure.json',JSON.stringify({errors,missing,external,url:page.url(),text:await page.locator('body').innerText().catch(()=>''),error:String(error)},null,2));
+    }
+  }
+  throw error;
 } finally {if(app)await app.close();await rm(userData,{recursive:true,force:true});}
