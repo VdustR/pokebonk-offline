@@ -2,6 +2,7 @@ import {parseMetadata,parseManifest} from '../types/metadata.ts';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import {inspectIconCatalogs} from './catalog-icons.ts';
 const root=path.resolve(process.argv[2]??'build/game');
 const manifest=parseManifest(JSON.parse(await readFile(path.join(root,'asset-manifest.json'),'utf8')));
 for(const entry of manifest.files){
@@ -10,5 +11,16 @@ for(const entry of manifest.files){
  if(bytes.length!==entry.bytes||createHash('sha256').update(bytes).digest('hex')!==entry.sha256)throw new Error(`Integrity mismatch: ${entry.name}`);
 }
 const meta=parseMetadata(JSON.parse(await readFile(path.join(root,'offline-build.json'),'utf8')));
+const modules=await Promise.all(manifest.files.filter(entry=>entry.name.endsWith('.js')).map(async entry=>({name:entry.name,source:await readFile(path.join(root,entry.name),'utf8')})));
+const mains=modules.filter(module=>module.source.includes(' as App}'));
+const configs=modules.filter(module=>!mains.includes(module)&&module.source.includes('slot-move'));
+if(mains.length!==1||configs.length!==1||!mains[0]||!configs[0])throw new Error('Unsupported game modules');
+const {statusIcons,reactionIcons}=inspectIconCatalogs(mains[0].source,configs[0].source);
+const names=new Set(manifest.files.map(entry=>entry.name));
+for(const name of [...statusIcons,...reactionIcons]) {
+ if(!names.has(name))throw new Error(`Missing catalog icon: ${name}`);
+ const bytes=await readFile(path.join(root,name));
+ if(!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))throw new Error(`Invalid catalog PNG: ${name}`);
+}
 if(process.env['EXPECTED_BUILD']&&meta.upstreamBuild!==process.env['EXPECTED_BUILD'])throw new Error('Upstream changed during collection; rerun with the new identity');
 console.log(`Verified ${manifest.files.length} payload hashes for ${meta.upstreamBuild}`);

@@ -64,6 +64,8 @@ cd android
 
 Maintained tools, tests, Electron code, and the browser backend use TypeScript 7.0.2 with `@tsconfig/strictest` and application-scoped `ts-reset`. See [TypeScript boundaries and verification](docs/typescript.md) for the environment split, runtime emission, coverage gate, and incremental-cache limitation.
 
+Catalog-driven status and reaction images are required assets. The payload verifier checks catalog completeness as well as file hashes; native tests also decode these images. See [asset collection and evidence limits](docs/asset-collection.md).
+
 A loopback static preview is available with `pnpm preview` for debugging. It is not an installable PWA. Native runtime tests use a temporary Electron user-data directory; a packaged executable can be supplied as the second argument to `e2e/electron.ts`.
 
 To test an installed debug APK on a connected emulator or device:
