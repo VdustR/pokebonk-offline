@@ -49,7 +49,7 @@ The former PWA's browser data is separate from Electron and Android app storage.
 
 ## Build and verify
 
-Node.js 24.12+ and pnpm 10.33.2 are required. Electron 45.0.0 and Electron Packager 20.3.0 are pinned. Android uses the checked-in Gradle wrapper, JDK 17+, Android SDK 36, and build-tools 36.0.0. The native shells reference [VdustR/pokerogue-offline](https://github.com/VdustR/pokerogue-offline/tree/5207e18f9986717824b30cef01c034a6e46db4a3).
+Use Node.js 24 LTS (24.12+) or Node.js 26+, with pnpm 10.33.2. Electron 45.0.0 and Electron Packager 20.3.0 are pinned. Android uses the checked-in Gradle wrapper, JDK 17+, Android SDK 36, and build-tools 36.0.0. The native shells reference [VdustR/pokerogue-offline](https://github.com/VdustR/pokerogue-offline/tree/5207e18f9986717824b30cef01c034a6e46db4a3).
 
 ```sh
 pnpm install --frozen-lockfile

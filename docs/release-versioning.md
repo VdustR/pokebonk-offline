@@ -23,7 +23,7 @@ pnpm test
 
 Review the package version, generated `CHANGELOG.md`, consumed Changeset, and lockfile in the same PR. The build rejects pending Changeset files: version them before delivery. Changesets 3 exits with status 1 when there are no unreleased Changesets; the minimal private-app probe verified that this leaves the version unchanged. Do not run `changeset publish`: GitHub Actions owns native publication, and the package remains private.
 
-Changesets is pinned at 3.0.3 with `privatePackages.version: true` and `privatePackages.tag: false`. See [Changesets beyond npm](https://changesets.dev/guide/beyond-npm) and [configuration](https://changesets.dev/guide/config). This repository uses Changesets' manual versioning workflow; adding a version-PR bot would be a separate workflow/access decision.
+Use Node.js 24 LTS (24.12+) or Node.js 26+; Changesets 3 does not support Node.js 25. Changesets is pinned at 3.0.3 with `privatePackages.version: true` and `privatePackages.tag: false`. See [Changesets beyond npm](https://changesets.dev/guide/beyond-npm) and [configuration](https://changesets.dev/guide/config). This repository uses Changesets' manual versioning workflow; adding a version-PR bot would be a separate workflow/access decision.
 
 ## Build identity and checks
 
