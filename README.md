@@ -4,7 +4,7 @@ Unofficial, fully bundled [PokéBonk](https://pokebonk.com/) unlock-all apps for
 
 ## Download and play
 
-Download your platform's archive or APK from [Releases](https://github.com/VdustR/pokebonk-offline/releases). `SHA256SUMS.txt` verifies every download.
+Download the **Unlocked** archive or APK for your platform from the [latest release](https://github.com/VdustR/pokebonk-offline/releases/latest). Release titles show the upstream game and offline builder versions; download filenames identify the edition and platform. `SHA256SUMS.txt` verifies every download.
 
 | Package | Platform |
 | --- | --- |
@@ -34,6 +34,10 @@ These builds support macOS 13 or later. They are ad-hoc signed, with no Apple De
 A warning that the app **will damage your computer**, was moved to Trash as malware, or **is damaged** needs investigation; do not treat it as the ordinary unidentified-developer prompt. Re-download from Releases and verify the checksum for a damaged download; report a persistent failure. Managed Macs may require your administrator's approval. [Apple distinguishes these alerts](https://support.apple.com/en-us/102445).
 
 For an update, quit the app and replace its copy in Applications. Keep the same app name and user-data directory to retain local saves; a new downloaded build may require approval again.
+
+## Editions
+
+**Unlocked** is the current supported edition. A **Standard** edition with normal progression is under study; it is not yet available. It requires real reward, purchase and claim handling, plus separate saves. See the [edition study](docs/editions.md) for verified gaps and the proposed isolation model.
 
 ## Unlocks and scope
 
@@ -79,13 +83,13 @@ Release WebViews disable debugging. Do not replace an installed release APK with
 
 ## Automatic releases
 
-CI checks the upstream game build and builder revision on main changes, pull requests, manual dispatch, and every six hours. A fully published matching Release skips collection, tests, packaging, and publication. Changed identities build every platform and publish only after the verification jobs pass. Pull requests never receive signing secrets or publish Releases.
+CI checks the upstream game version/build and the Changesets-managed offline version on main changes, pull requests, manual dispatch, and every six hours. Titles use **PokéBonk 0.8.34 · Offline 0.0.1**; tags also retain the exact upstream build. A published matching identity skips packaging when its packaged-source digest is unchanged, so documentation-only commits do not create new binaries. Changed packaged source requires an offline version bump. Every new identity builds all platforms and publishes as **Latest** only after verification. Pull requests never receive signing secrets or publish Releases. See [release versioning and the Changesets workflow](docs/release-versioning.md).
 
 The collector follows the game module/CSS graph and current catalogs. Semantic patching fails on incompatible upstream structures. Payload manifests verify each bundled file's SHA-256 and length. Status badges are collected from the real status-effect catalog as mandatory images. Runtime checks decode every status icon and display an afflicted boss, alongside complete local resource access, all unlock categories, persisted saves, and four maps plus the Halloween tower. These are representative checks rather than exhaustive coverage of every event or physical device.
 
 Electron serves only the bundled custom origin with Node integration disabled, context isolation and sandboxing enabled, and runtime HTTP/HTTPS/WebSocket requests blocked. Android serves bundled assets through a local HTTPS WebView origin and requests no `INTERNET` permission. These follow the [Electron security guidance](https://www.electronjs.org/docs/latest/tutorial/security) and Android's [local-content model](https://developer.android.com/develop/ui/views/layout/webapps/load-local-content).
 
-Android signing passwords remain in GitHub Actions secrets. `android/signing-certificate.sha256` pins the public certificate fingerprint so a different signing key fails publication. Every Release contains four desktop archives, one signed APK, and checksums. An incomplete draft can be resumed; it is never treated as a completed update.
+Android signing passwords remain in GitHub Actions secrets. `android/signing-certificate.sha256` pins the public certificate fingerprint so a different signing key fails publication. Every new-format Release contains four desktop archives, one signed APK, checksums, and `release-info.json` with upstream/offline versions, source commit, source digest, and edition. An incomplete draft can be resumed; it is never treated as a completed update.
 
 ## Attribution
 

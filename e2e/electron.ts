@@ -19,6 +19,7 @@ const errors: string[]=[],missing: {url:string;status:number}[]=[],external: str
 try {
   app=await electron.launch(options);
   const page=await app.firstWindow();
+  if(executablePath)assert.equal(await app.evaluate(({app})=>app.getVersion()),metadata.offlineVersion,'Packaged native version must match offline release');
   const isolation=await app.evaluate(({BrowserWindow})=>{
     const window=BrowserWindow.getAllWindows()[0];
     if(!window)throw new Error('No Electron window');
