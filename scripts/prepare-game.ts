@@ -5,6 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { ast, nodes, nodesOf, literal, maybeName, nameOf, requireNode } from './source.ts';
 import { patchGame, inspectGame } from './patch-game.ts';
 import { inspectIconCatalogs } from './catalog-icons.ts';
+import {versionForBuild} from './upstream-version.ts';
+import {offlineVersion,sourceDigest} from './release-source.ts';
 
 import {record, text as textValue, finite, list, isRecord, objectArray} from '../types/data.ts';
 
@@ -91,7 +93,7 @@ const configKey = [...files.keys()].find(key => key.endsWith('.js') && contents(
 if (!configKey) throw new Error('No configuration module found');
 const config = contents(configKey);
 const info = inspectGame(main, config);
-const version = textValue(Object.values(info.values).filter(objectArray).flat().find(v => v['build'] === buildId)?.['version'], 'upstream version');
+const version = versionForBuild(info.configTree,buildId);
 if (!version) throw new Error('Game/config build mismatch');
 const resourceVersion = (key: string) => {
   const relative = key.replace(/^assets\//, '');
@@ -203,7 +205,7 @@ files.delete('manifest.webmanifest');
 files.set('index.html',Buffer.from(nativeHtml));
 for(const [key,data] of files)if(key.endsWith('.html'))files.set(key,Buffer.from(data.toString().replace(/((?:src|href)=["'])\/(?!\/)/g,'$1./').replace(/href=(["'])\.\/legal\1/g,'href=$1./legal.html$1')));
 files.set('version.json', Buffer.from(JSON.stringify({build:buildId,version})));
-files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,statusIcons,reactionIcons,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
+files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,offlineVersion:await offlineVersion(),sourceDigest:await sourceDigest(),variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,statusIcons,reactionIcons,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
 await rm(output,{recursive:true,force:true});
 for (const [key,data] of files) { const target=path.join(output,key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data); }
 const entries=[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);

@@ -12,9 +12,12 @@
     "e2e:android": "node e2e/android.ts",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.desktop.json && tsc -p tsconfig.runtime.json && tsc -p tsconfig.e2e.json && node scripts/verify-types.ts",
     "build": "tsc -p tsconfig.desktop.build.json && tsc -p tsconfig.runtime.build.json",
-    "test:types": "node scripts/verify-type-gates.ts"
+    "test:types": "node scripts/verify-type-gates.ts",
+    "changeset": "changeset",
+    "version:release": "changeset version"
   },
   "devDependencies": {
+    "@changesets/cli": "3.0.3",
     "@electron/packager": "20.3.0",
     "@total-typescript/ts-reset": "0.6.1",
     "@tsconfig/strictest": "2.0.8",
@@ -27,6 +30,7 @@
   },
   "packageManager": "pnpm@10.33.2",
   "engines": {
-    "node": ">=24.12.0"
-  }
+    "node": "^24.12.0 || >=26"
+  },
+  "version": "0.0.1"
 }

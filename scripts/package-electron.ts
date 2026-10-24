@@ -19,19 +19,19 @@ try {
   await mkdir(appDirectory);
   await cp('dist/desktop/main.js',path.join(appDirectory,'main.mjs'));
   await cp('LICENSE',path.join(appDirectory,'LICENSE'));
-  await writeFile(path.join(appDirectory,'package.json'),JSON.stringify({name:'pokebonk-offline',productName:'Pokebonk Offline',version:meta.upstreamVersion,type:'module',main:'main.mjs',author:'VdustR'}));
+  await writeFile(path.join(appDirectory,'package.json'),JSON.stringify({name:'pokebonk-offline',productName:'Pokebonk Offline',version:meta.offlineVersion,type:'module',main:'main.mjs',author:'VdustR'}));
   const iconBase=path.join(temp,'pokebonk');
   await createElectronIcons(game,iconBase);
   const packaged = one(await packager({dir:appDirectory,out:temp,name:'Pokebonk Offline',platform,arch,
     ...(platform==='linux'?{}:{icon:iconBase}),
     ...(platform==='darwin'?{extendInfo:{CFBundleIconFile:'pokebonk.icns'}}:{}),
     electronVersion:text(record(require('electron/package.json'))['version']),appBundleId:'dev.vdustr.pokebonk.offline',
-    appVersion:meta.upstreamVersion,asar:true,overwrite:true,prune:false}),'Electron package');
+    appVersion:meta.offlineVersion,asar:true,overwrite:true,prune:false}),'Electron package');
   const resources = platform === 'darwin' ? path.join(packaged,'Pokebonk Offline.app/Contents/Resources') : path.join(packaged,'resources');
   await cp(game,path.join(resources,'game'),{recursive:true});
   if (platform === 'darwin' && process.platform === 'darwin') execFileSync(process.execPath,['scripts/finalize-macos-electron-app.ts',path.join(packaged,'Pokebonk Offline.app')],{stdio:'inherit'});
   await mkdir(output,{recursive:true});
-  const file=path.join(output,`pokebonk-${platform}-${arch}-${meta.upstreamBuild}.${platform === 'linux' ? 'tar.gz' : 'zip'}`);
+  const file=path.join(output,`pokebonk-offline-${meta.offlineVersion}-unlocked-${platform}-${arch}-game-${meta.upstreamVersion}-${meta.upstreamBuild}.${platform === 'linux' ? 'tar.gz' : 'zip'}`);
   await rm(file,{force:true});
   if(platform === 'linux') execFileSync('tar',['-czf',file,'-C',temp,path.basename(packaged)],{stdio:'inherit'});
   else execFileSync('zip',['-qry','-y',file,path.basename(packaged)],{cwd:temp,stdio:'inherit'});
