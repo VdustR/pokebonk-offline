@@ -185,7 +185,7 @@ files.set('pwa-client.js',await readFile('runtime/pwa-client.js'));
 files.set('pwa.css',await readFile('runtime/pwa.css'));
 files.set('manifest.webmanifest',Buffer.from(JSON.stringify({id:'./',name:'PokéBonk Offline',short_name:'PokéBonk',description:'PokéBonk with local unlocks and offline play.',lang:'zh-TW',start_url:'./?lang=zht',scope:'./',display:'fullscreen',orientation:'landscape',background_color:'#1a1630',theme_color:'#1a1630',icons:[{src:'icons/icon-192.png',sizes:'192x192',type:'image/png'},{src:'icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}]},null,2)));
 files.set('version.json', Buffer.from(JSON.stringify({build:buildId,version})));
-files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
+files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
 await rm(output,{recursive:true,force:true});
 for (const [key,data] of files) { const target=path.join(output,key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data); }
 const entries=[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);

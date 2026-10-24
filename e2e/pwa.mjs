@@ -26,10 +26,6 @@ try {
   context.on('response',response=>{if(response.status()>=400)missing.push({url:response.url(),status:response.status()});});
   await page.goto(origin+mount+'?lang=zht');
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
-  for(const label of ['跳過','知道了']) {
-    const button=page.getByRole('button',{name:label,exact:true});
-    if(await button.first().isVisible().catch(()=>false))await button.first().click();
-  }
   console.log('Game loaded; waiting for full offline cache.');
   await page.waitForFunction(()=>window.__pokebonkOfflineState==='ready',null,{timeout:180000});
   console.log('Complete offline cache ready under the Pages project path.');
@@ -39,6 +35,23 @@ try {
   assert.equal(Object.keys(profile.lab).length,meta.lab);
   assert.equal(profile.itemsOwned.length,meta.items);
   assert.equal(profile.stardust,1e9);
+  assert.equal(Object.keys(profile.quests).length,meta.achievements);
+  assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.meta.claimable()),0);
+  const gpuNotice=page.getByRole('button',{name:'知道了',exact:true}).first();
+  if(await gpuNotice.isVisible())await gpuNotice.click();
+  const tourSkip=page.getByRole('button',{name:'跳過',exact:true});
+  await tourSkip.waitFor({state:'visible',timeout:15000});
+  await tourSkip.click();
+  await page.getByRole('button',{name:/^成就 /}).click();
+  const generalAchievements=await page.locator('.q-card').count();
+  assert.equal(await page.locator('.q-card.done').count(),generalAchievements);
+  await page.screenshot({path:'evidence/achievements.png'});
+  await page.getByRole('button',{name:'外觀',exact:true}).click();
+  const lookAchievements=await page.locator('.q-card').count();
+  assert.equal(await page.locator('.q-card.done').count(),lookAchievements);
+  assert.equal(generalAchievements+lookAchievements,meta.achievements);
+  await page.screenshot({path:'evidence/achievement-looks.png'});
+  await page.evaluate(()=>window.__pokebonkLocalApp.toMenu());
   await page.evaluate(async()=>{
     const app=window.__pokebonkLocalApp;
     await app.backend.chooseStarter(null,150);
@@ -48,6 +61,7 @@ try {
   await page.reload();
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.lastSpecies===150,null,{timeout:120000});
   assert.equal(await page.evaluate(()=>localStorage.getItem('offline-test-marker')),'preserved');
+  assert.equal(await page.evaluate(()=>Object.keys(window.__pokebonkLocalApp.meta.profile.quests).length),meta.achievements);
   assert.equal(await page.evaluate(()=>Boolean(navigator.serviceWorker.controller)),true);
   const legal=await context.newPage();
   await legal.goto(origin+mount+'legal.html');

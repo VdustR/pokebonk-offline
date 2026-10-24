@@ -28,10 +28,15 @@ class LocalSandboxBackend {
     profile.lab = Object.fromEntries(__LAB__.map(upgrade => [upgrade.id, upgrade.max]));
     profile.itemsOwned = __ITEMS__.map(item => item.key);
     profile.biomes = Object.fromEntries(__BIOMES__.map(biome => [biome.id, 3]));
+    profile.quests = { ...profile.quests, ...Object.fromEntries(__QUESTS__.map(quest => [quest.id, 1])) };
+    const achievementCosmetics = __QUESTS__.flatMap(quest => [
+      ...(quest.title ? ['title:q:' + quest.id] : []),
+      ...(quest.look ? [`look:${quest.look.member}:${quest.look.n}`] : []),
+    ]);
     profile.stardust = 1000000000;
     profile.totalStardust = Math.max(profile.totalStardust || 0, profile.stardust);
     profile.bag = { ...profile.bag, ...Object.fromEntries(__PREPARATIONS__.map(id=>[id,999])) };
-    profile.cosmetics = [...new Set([...profile.cosmetics, ...__COSMETICS__, 'skin:spectral'])];
+    profile.cosmetics = [...new Set([...profile.cosmetics, ...__COSMETICS__, ...achievementCosmetics, 'skin:spectral'])];
     return profile;
   }
   async persist(profile = this.current) {

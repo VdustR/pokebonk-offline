@@ -10,7 +10,7 @@ function backend(storage = new Map()) {
   const context = { structuredClone,crypto:webcrypto,Date,document:{title:''},
     localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
     __PROFILE__:defaults,__SEASON__:()=>({season:2}),__ROSTER__:[{id:4},{id:150}],__REGISTRY__:{pokemon:[{id:4},{id:5},{id:150}],get:id=>({family:id}),root:id=>({id})},
-    __LAB__:[{id:'move',max:4}],__ITEMS__:[{key:'soda-pop'}],__BIOMES__:[{id:'forest'}],__EVENTS__:[],__SCORE__:()=>0,__COSMETICS__:['frame:master'],__PREPARATIONS__:['rare-candy','honey'] };
+    __LAB__:[{id:'move',max:4}],__ITEMS__:[{key:'soda-pop'}],__BIOMES__:[{id:'forest'}],__EVENTS__:[],__QUESTS__:[{id:"kills100",title:"Veteran"},{id:"look4",look:{member:4,n:1}}],__SCORE__:()=>0,__COSMETICS__:['frame:master'],__PREPARATIONS__:['rare-candy','honey'] };
   return new vm.Script(template+'\n;createLocalSandboxBackend()').runInNewContext(context);
 }
 test('new profile unlocks catalogs and reload preserves preferences and starter',async()=>{
@@ -28,4 +28,14 @@ test('finished runs persist counters and finite rewards without external fetch',
 });
 test('corrupt saves fail visibly instead of silently replacing progress',async()=>{
   await assert.rejects(backend(new Map([['pokebonk.local.profile.v1','invalid-json']])).loadProfile(),/JSON/);
+});
+
+test('existing saves receive every achievement and cosmetic without fabricating run counters',async()=>{
+  const storage=new Map([['pokebonk.local.profile.v1',JSON.stringify({lastSpecies:4,quests:{old:1},counters:{kills:7,wins:1},settings:{audio:0},runs:[{id:'real-run'}],cosmetics:['frame:custom']})]]);
+  const b=backend(storage),p=await b.loadProfile();
+  assert.equal(p.quests.kills100,1);assert.equal(p.quests.look4,1);assert.equal(p.quests.old,1);
+  assert.ok(p.cosmetics.includes('title:q:kills100'));assert.ok(p.cosmetics.includes('look:4:1'));assert.ok(p.cosmetics.includes('frame:custom'));
+  assert.equal(p.counters.kills,7);assert.equal(p.counters.wins,1);assert.equal(p.runs[0].id,'real-run');assert.equal(p.lastSpecies,4);assert.equal(p.settings.audio,0);
+  await b.savePrefs(null,p);const reloaded=await backend(storage).loadProfile();
+  assert.equal(reloaded.quests.look4,1);assert.equal(reloaded.cosmetics.filter(x=>x==='look:4:1').length,1);assert.equal(reloaded.counters.kills,7);
 });
