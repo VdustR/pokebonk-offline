@@ -1,0 +1,17 @@
+node_modules/
+cache/
+build/
+dist/
+release/
+upstream/
+android/.gradle/
+android/**/build/
+android/app/src/main/assets/www/
+android/local.properties
+*.jks
+*.keystore
+*.p12
+*.key
+SESSION.md
+evidence/
+.DS_Store
