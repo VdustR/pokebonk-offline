@@ -1,15 +1,14 @@
 # PokéBonk Offline
 
-Private, unofficial [PokéBonk](https://pokebonk.com/) unlock-all PWA. The game runs entirely in the frontend, saves locally, and downloads all bundled resources for offline play. No account backend, Electron app, APK, or signing key is required.
+Unofficial [PokéBonk](https://pokebonk.com/) unlock-all PWA. The game runs entirely in the frontend, saves locally, and downloads all bundled resources for offline play. No account backend, Electron app, APK, or signing key is required.
 
 ## Install and play
 
-1. Download `pokebonk-pwa.zip` and `SHA256SUMS.txt` from [Releases](https://github.com/VdustR/pokebonk-offline/releases).
-2. Verify the checksum, extract the archive, and serve it from a dedicated HTTPS origin or subdirectory. For local desktop use, a localhost static HTTP server also works; opening `index.html` through `file://` does not.
-3. Open the served URL and wait for the offline-ready message. The first visit downloads approximately 62 MiB for the currently supported build.
-4. Use Chrome/Edge's Install option on desktop or Android, or Safari's Add to Home Screen on iOS. After preparation, the installed app and browser page can reopen without a network connection.
+1. Open [PokéBonk Offline](https://vdustr.github.io/pokebonk-offline/).
+2. Wait for the offline-ready message. The first visit downloads approximately 62 MiB for the currently supported build.
+3. Use Chrome/Edge's Install option on desktop or Android, or Safari's Add to Home Screen on iOS. After preparation, the installed app and browser page can reopen without a network connection.
 
-The repository does not automatically publish a public website. Android/iOS installation requires an HTTPS URL reachable from that device. A Mac's localhost preview URL is local to that Mac.
+GitHub Pages serves the game publicly over HTTPS. Repository visibility is managed separately. Saves from a previous local preview remain on that origin and do not automatically transfer to Pages.
 
 ## Unlocks and saves
 
@@ -46,16 +45,16 @@ The service worker downloads the complete asset manifest and verifies every reso
 
 New versions download in the background. Active games stay on their original build; close all game tabs/app windows and reopen to activate a downloaded update. Old caches are removed only when the new worker activates. Local saves are independent of the asset cache.
 
-## Automatic releases
+## Automatic deployment
 
-The workflow runs on main changes, pull requests, manual dispatch, and every six hours. It compares the game's build identifier and builder commit with published Releases. Unchanged identities skip resource collection, browser tests, and publication.
+The workflow runs on main changes, pull requests, manual dispatch, and every six hours. It compares the game's build identifier and builder commit with the deployed Pages build metadata. Unchanged identities skip resource collection, browser tests, and publication.
 
-Changed builds must pass semantic compatibility checks, local-save tests, cache integrity/failure tests, payload SHA-256 verification, full precaching, offline reload/persistence, and representative offline gameplay on four maps plus the Halloween tower. Only then does CI publish `pokebonk-pwa.zip` and checksums. Pull requests validate without publishing. Unsupported upstream structures or missing required resources fail instead of publishing an assumed-compatible build.
+Changed builds must pass semantic compatibility checks, local-save tests, cache integrity/failure tests, payload SHA-256 verification, full precaching, offline reload/persistence, and representative offline gameplay on four maps plus the Halloween tower. Only then does CI deploy the verified static payload to GitHub Pages. No GitHub Release is created. Pull requests validate without publishing. Unsupported upstream structures or missing required resources fail instead of publishing an assumed-compatible build.
 
 The collector follows module/CSS dependencies and current game catalogs, downloading data, sprites, models, maps, music, fonts, and cosmetics into ignored output. Optional candidate paths absent on the upstream site are recorded in `asset-manifest.json`; any missing resource actually requested in gameplay smoke tests fails publication. These tests are representative, not exhaustive coverage of every late-game event, browser, or physical mobile device.
 
 ## Attribution
 
-The release-workflow approach references [VdustR/pokerogue-offline](https://github.com/VdustR/pokerogue-offline/tree/5207e18f9986717824b30cef01c034a6e46db4a3). Builder code uses the included AGPL-3.0 license.
+The original build-workflow approach references [VdustR/pokerogue-offline](https://github.com/VdustR/pokerogue-offline/tree/5207e18f9986717824b30cef01c034a6e46db4a3). Builder code uses the included AGPL-3.0 license.
 
-PokéBonk's game code and resources are fetched at build time, retain their original rights, and are not covered by the builder license or tracked in Git. Credit goes to Charcher and the original contributors. Pokémon names and assets belong to their respective owners; the original game's credits and legal page remain included. This is an unofficial, noncommercial personal build with no affiliation or endorsement. Repository and Releases remain private.
+PokéBonk's game code and resources are fetched at build time, retain their original rights, and are not covered by the builder license or tracked in Git. Credit goes to Charcher and the original contributors. Pokémon names and assets belong to their respective owners; the original game's credits and legal page remain included. This is an unofficial, noncommercial personal build with no affiliation or endorsement. The Pages website is publicly accessible; the upstream game is bundled only into deployment artifacts.
