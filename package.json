@@ -1,0 +1,19 @@
+{
+  "name": "pokebonk-offline-builder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "prepare:game": "node scripts/prepare-game.mjs",
+    "e2e:electron": "node e2e/electron.mjs",
+    "package:electron": "node scripts/package-electron.mjs",
+    "stage:android": "node scripts/stage-android.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.0.3",
+    "acorn": "8.19.0",
+    "electron": "43.5.0",
+    "playwright-core": "1.61.1"
+  },
+  "packageManager": "pnpm@10.33.2"
+}
