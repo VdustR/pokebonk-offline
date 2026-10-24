@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2023"
+    ]
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "test/**/*.ts",
+    "types/reset.d.ts",
+    "type-tests/node.ts"
+  ]
+}

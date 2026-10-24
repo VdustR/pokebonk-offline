@@ -33,7 +33,7 @@ jobs:
         id: identity
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/check-update.mjs
+        run: node scripts/check-update.ts
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
         if: steps.identity.outputs.changed == 'true'
         with:
@@ -45,9 +45,11 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm exec install-electron
+          pnpm typecheck
+          pnpm test:types
           pnpm test
           pnpm prepare:game
-          node scripts/verify-game.mjs
+          node scripts/verify-game.ts
           xvfb-run -a pnpm e2e:electron
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: steps.identity.outputs.changed == 'true'
@@ -92,7 +94,7 @@ jobs:
       - name: Package Electron app
         run: |
           pnpm install --frozen-lockfile
-          node scripts/verify-game.mjs
+          node scripts/verify-game.ts
           pnpm package:electron build/game release ${{ matrix.platform }} ${{ matrix.arch }}
       - name: Test packaged Linux app
         if: matrix.platform == 'linux'
@@ -142,8 +144,8 @@ jobs:
           path: build/game
       - name: Stage and build Android
         run: |
-          node scripts/verify-game.mjs
-          node scripts/stage-android.mjs
+          node scripts/verify-game.ts
+          node scripts/stage-android.ts
           cd android
           ./gradlew --no-daemon -PpokebonkVersionCode="$((100000 + GITHUB_RUN_NUMBER))" -PpokebonkVersionName="${{ needs.prepare.outputs.build }}" assembleRelease lintRelease
       - name: Sign and verify APK
@@ -162,7 +164,7 @@ jobs:
           trap 'rm -f "$keystore"' EXIT
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
           chmod 600 "$keystore"
-          node scripts/sign-android.mjs android/app/build/outputs/apk/release/app-release-unsigned.apk release/pokebonk-android.apk "$keystore"
+          node scripts/sign-android.ts android/app/build/outputs/apk/release/app-release-unsigned.apk release/pokebonk-android.apk "$keystore"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: github.event_name != 'pull_request'
         with:

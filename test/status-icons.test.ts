@@ -1,5 +1,5 @@
 import {test}from'node:test';import assert from'node:assert/strict';
-import {ast}from'../scripts/source.mjs';import {statusIconPaths}from'../scripts/status-icons.mjs';
+import {ast}from'../scripts/source.ts';import {statusIconPaths}from'../scripts/status-icons.ts';
 const fixture=`const statuses=[{id:'poison',on:()=>1},{id:'sleep',on:()=>1}];class Bar{update(){for(const effect of statuses){if(effect.on())this.el.append(icon('st-'+effect.id,22));}}}`;
 test('dynamic status icons follow the rendered catalog across renamed bindings',()=>{
  for(const source of [fixture,fixture.replaceAll('statuses','a').replaceAll('effect','b')])assert.deepEqual(statusIconPaths(ast(source),'icon'),['assets/ui/icons/st-poison.png','assets/ui/icons/st-sleep.png']);

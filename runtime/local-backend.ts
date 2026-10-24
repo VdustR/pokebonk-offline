@@ -1,8 +1,31 @@
+// Storage is untrusted even though all writes stay on this device. Preserve
+// unknown upstream fields while validating every field this adapter consumes.
+function localObject(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('Invalid local profile object');
+  return value as Record<string, unknown>;
+}
+function localString(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('Invalid local profile string');
+  return value;
+}
+function localNumber(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('Invalid local profile number');
+  return value;
+}
+function localList<T>(value: unknown, parse: (entry: unknown) => T): T[] {
+  if (!Array.isArray(value)) throw new Error('Invalid local profile array');
+  return value.map(parse);
+}
+
 // Injected into the pinned game module; all state and results stay local.
-class LocalSandboxBackend {
+class LocalSandboxBackend implements LocalBackendContract {
   kind = 'local';
   clockSkew = 0;
-  current = null;
+  current: LocalReadyProfile | null = null;
+  get profile(): LocalReadyProfile {
+    if (!this.current) throw new Error("Load the local profile before changing it.");
+    return this.current;
+  }
   account = { id: 'local-sandbox', name: 'Local Sandbox', guest: false };
 
   season() { return __SEASON__(Date.now()); }
@@ -15,7 +38,7 @@ class LocalSandboxBackend {
   guestSave() { return true; }
   async logout() { throw new Error('Local sandbox: no online account is connected.'); }
 
-  unlock(profile) {
+  unlock(profile: LocalProfile): LocalReadyProfile {
     profile.localSandbox = true;
     profile.starter = profile.starter || 4;
     profile.league = __ROSTER__.map(member => member.id);
@@ -30,9 +53,11 @@ class LocalSandboxBackend {
     profile.biomes = Object.fromEntries(__BIOMES__.map(biome => [biome.id, 3]));
     profile.medals = { ...profile.medals, ...Object.fromEntries(__BIOMES__.filter(biome=>Number.isFinite(biome.size)).flatMap(biome=>[0,1,2].map(tier=>[`${biome.id}-${tier}`,__MEDALS__]))) };
     __REFRESH__(profile,Date.now());
-    for(const period of ['daily','weekly']) {
-      profile[period].prog = profile[period].ids.map(id=>__TASK__(id).goal);
-      profile[period].claimed = [1,1,1,1];
+    if (!profile.daily || !profile.weekly) throw new Error('Invalid refreshed task periods');
+    const ready = Object.assign(profile, {daily: profile.daily, weekly: profile.weekly});
+    for(const period of ['daily','weekly'] as const) {
+      ready[period].prog = ready[period].ids.map(id=>__TASK__(id).goal);
+      ready[period].claimed = [1,1,1,1];
     }
     profile.quests = { ...profile.quests, ...Object.fromEntries(__QUESTS__.map(quest => [quest.id, 1])) };
     const achievementCosmetics = __QUESTS__.flatMap(quest => [
@@ -43,16 +68,35 @@ class LocalSandboxBackend {
     profile.totalStardust = Math.max(profile.totalStardust || 0, profile.stardust);
     profile.bag = { ...profile.bag, ...Object.fromEntries(__PREPARATIONS__.map(id=>[id,999])) };
     profile.cosmetics = [...new Set([...profile.cosmetics, ...__COSMETICS__, ...achievementCosmetics, 'skin:spectral'])];
-    return profile;
+    return ready;
   }
-  async persist(profile = this.current) {
+  async persist(profile: unknown = this.profile) {
     this.current = this.unlock(this.normalize(structuredClone(profile)));
     localStorage.setItem('pokebonk.local.profile.v1', JSON.stringify(this.current));
     return structuredClone(this.current);
   }
-  normalize(profile) {
-    const defaults = __PROFILE__('Local Sandbox');
-    return { ...defaults, ...profile, settings: { ...defaults.settings, ...profile?.settings } };
+  normalize(value: unknown): LocalProfile {
+    const defaults = localObject(__PROFILE__('Local Sandbox'));
+    const saved = value === null ? {} : localObject(value);
+    const merged = {...defaults, ...saved};
+    const numbers = (key: string) => localList(merged[key] ?? [], localNumber);
+    const strings = (key: string) => localList(merged[key] ?? [], localString);
+    const counts = (key: string) => Object.fromEntries(Object.entries(localObject(merged[key] ?? {})).map(([k,v]) => [k,localNumber(v)]));
+    const profile: LocalProfile = {
+      ...merged,
+      settings: {...localObject(defaults['settings'] ?? {}), ...localObject(saved['settings'] ?? {})},
+      league:numbers('league'),unlocked:numbers('unlocked'),seen:numbers('seen'),forms:numbers('forms'),shinies:numbers('shinies'),classics:numbers('classics'),
+      research:counts('research'),lab:counts('lab'),biomes:counts('biomes'),bag:counts('bag'),medals:counts('medals'),quests:counts('quests'),counters:counts('counters'),
+      cosmetics:strings('cosmetics'),itemsOff:strings('itemsOff'),itemsOwned:strings('itemsOwned'),
+      runs:localList(merged['runs'] ?? [], entry => {const run=localObject(entry);return {...run,id:localString(run['id'])};}),
+      stardust:localNumber(merged['stardust'] ?? 0),totalStardust:localNumber(merged['totalStardust'] ?? 0),
+    };
+    for (const key of ['starter','lastSpecies'] as const) if (merged[key] !== undefined) profile[key] = localNumber(merged[key]);
+    for (const key of ['daily','weekly'] as const) if (merged[key] !== undefined) {
+      const period=localObject(merged[key]);
+      profile[key]={...period,ids:localList(period['ids'],localString),prog:localList(period['prog'] ?? [],localNumber),claimed:localList(period['claimed'] ?? [],localNumber)};
+    }
+    return profile;
   }
   async loadProfile() {
     const raw = localStorage.getItem('pokebonk.local.profile.v1');
@@ -60,50 +104,50 @@ class LocalSandboxBackend {
     await this.persist();
     return structuredClone(this.current);
   }
-  async savePrefs(account, profile) { await this.persist(profile); }
-  async chooseStarter(account, species) {
-    this.current.lastSpecies = species;
+  async savePrefs(_account: unknown, profile: unknown) { await this.persist(profile); }
+  async chooseStarter(_account: unknown, species: number) {
+    this.profile.lastSpecies = species;
     return this.persist();
   }
-  async startRun(account, config) {
-    return { id: 'local-' + crypto.randomUUID(), seed: crypto.getRandomValues(new Uint32Array(1))[0], ranked: false, boosts: config.boosts || [] };
+  async startRun(_account: unknown, config: LocalRunConfig): Promise<LocalRunTicket> {
+    return { id: 'local-' + crypto.randomUUID(), seed: new DataView(crypto.getRandomValues(new Uint8Array(4)).buffer).getUint32(0,true), ranked: false, boosts: config.boosts || [] };
   }
   checkpoint() {}
-  keepLive(account, ticket, result) {
+  keepLive(_account: unknown, ticket: LocalRunTicket, result: LocalRunResult) {
     localStorage.setItem('pokebonk.local.pending.v1', JSON.stringify({ ticket, result }));
   }
   hasPending() { return false; }
   async retryNow() { return { left: 0, saved: 0 }; }
-  async finishRun(account, ticket, result) {
-    const profile = this.current;
+  async finishRun(_account: unknown, ticket: LocalRunTicket, result: LocalRunResult) {
+    const profile = this.profile;
     const progress = result.progress || {};
     for (const [key, value] of Object.entries(progress.counters || {})) profile.counters[key] = (profile.counters[key] || 0) + value;
-    profile.counters.runs = (profile.counters.runs || 0) + 1;
-    for (const key of ['seen', 'forms', 'league', 'shinies', 'classics']) profile[key] = [...new Set([...(profile[key] || []), ...(progress[key] || [])])];
+    profile.counters['runs'] = (profile.counters['runs'] || 0) + 1;
+    for (const key of ['seen', 'forms', 'league', 'shinies', 'classics'] as const) profile[key] = [...new Set([...(profile[key] || []), ...(progress[key] || [])])];
     const record = { ...result, id: ticket.id, date: Date.now(), seed: ticket.seed, ranked: false, score: __SCORE__(result) };
     delete record.progress;
     profile.runs = [record, ...profile.runs].slice(0, 30);
     if (result.victory) {
-      profile.counters.wins = (profile.counters.wins || 0) + 1;
+      profile.counters['wins'] = (profile.counters['wins'] || 0) + 1;
     }
     localStorage.removeItem('pokebonk.local.pending.v1');
     return { profile: await this.persist(), record, ranked: false, stardust: 0, local: true };
   }
-  async actions(account, actions) {
+  async actions(_account: unknown, actions: LocalProfileAction[]) {
     for (const action of actions) {
       if (action.k === 'archive') {
-        const disabled = new Set(this.current.itemsOff);
+        const disabled = new Set(this.profile.itemsOff);
         action.off ? disabled.add(action.key) : disabled.delete(action.key);
-        this.current.itemsOff = [...disabled];
+        this.profile.itemsOff = [...disabled];
       }
-      if (action.k === 'quest') this.current.quests[action.id] = 1;
+      if (action.k === 'quest') this.profile.quests[action.id] = 1;
     }
     return this.persist();
   }
   async buyLab() { return this.persist(); }
   async buyItem() { return this.persist(); }
-  async archiveItem(account, key, off) { return this.actions(account, [{ k: 'archive', key, off }]); }
-  async claimQuest(account, id) { return this.actions(account, [{ k: 'quest', id }]); }
+  async archiveItem(account: unknown, key: string, off: boolean) { return this.actions(account, [{ k: 'archive', key, off }]); }
+  async claimQuest(account: unknown, id: string) { return this.actions(account, [{ k: 'quest', id }]); }
   async records() { return { records: [], best: {}, times: {}, kills: {} }; }
   async endlessRecords() { return { records: [], best: {} }; }
   async board() { return { entries: [], me: null, players: 0, cutoff: null, info: this.season() }; }
@@ -121,7 +165,7 @@ class LocalSandboxBackend {
 function createLocalSandboxBackend() {
   const backend = new LocalSandboxBackend();
   return new Proxy(backend, {
-    get(target, key, receiver) {
+    get(target, key, receiver): unknown {
       if (key in target || typeof key !== 'string' || key === 'then') return Reflect.get(target, key, receiver);
       if (key.startsWith('on')) return undefined;
       return async () => { throw new Error('This online feature is unavailable in the local sandbox.'); };

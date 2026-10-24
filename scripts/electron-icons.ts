@@ -1,6 +1,6 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import path from 'node:path';
-export async function createElectronIcons(game,base) {
+export async function createElectronIcons(game: string,base: string) {
   const large=await readFile(path.join(game,'icons/icon-512.png'));
   const small=await readFile(path.join(game,'icons/icon-192.png'));
   const chunk=Buffer.alloc(8);chunk.write('ic09');chunk.writeUInt32BE(large.length+8,4);

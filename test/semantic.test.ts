@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {ast,nodes} from '../scripts/source.mjs';
-import { patchGame } from '../scripts/patch-game.mjs';
+import {ast,nodesOf,maybeName} from '../scripts/source.ts';
+import { patchGame } from '../scripts/patch-game.ts';
 
 const config = `
 const rosterSymbol=[{id:4,start:true,kit:[],passive:'flame'}];
@@ -32,7 +32,7 @@ class Application{boot(){}tasksReady(){refreshSymbol(this.profile,Date.now());}t
 await new Application().boot();`;
 
 test('semantic patches survive renamed upstream identifiers',()=>{
-  const rename = source => source.replace(/\b\w*(?:Symbol|Alias|Export)\b/g, name=>'renamed_'+name);
+  const rename = (source:string) => source.replace(/\b\w*(?:Symbol|Alias|Export)\b/g, (name:string)=>'renamed_'+name);
   const result=patchGame(rename(main),rename(config),'const catalogs=[__ROSTER__,__LAB__,__ITEMS__,__BIOMES__];const profile=__PROFILE__;const score=__SCORE__;');
   assert.match(result.main,/p\.localSandbox&&p\.quests\[q\.id\]\)return q\.goal/);
   assert.match(result.main,/const catalogs=\[renamed_rosterAlias/);
@@ -50,11 +50,11 @@ test('incompatible achievement catalogs fail closed',()=>{
 
 test('period changes grant local task rewards while ordinary profiles keep progression',()=>{
   const patched=patchGame(main,config,'').main;
-  const functions=nodes(ast(patched),n=>n.type==='FunctionDeclaration'&&['refreshSymbol','taskSymbol'].includes(n.id.name)).map(n=>patched.slice(n.start,n.end)).join('\n');
+  const functions=nodesOf(ast(patched),'FunctionDeclaration',n=>['refreshSymbol','taskSymbol'].includes(maybeName(n.id) ?? '')).map(n=>patched.slice(n.start,n.end)).join('\n');
   for(const localSandbox of [false,true]) {
-    const p={localSandbox};
+    const p: {localSandbox:boolean;daily?:{idx:number;prog:number[]};weekly?:{claimed:number[]}}={localSandbox};
     new vm.Script(functions+';refreshSymbol(p,42);').runInNewContext({p});
-    assert.equal(p.daily.idx,42);assert.equal(p.daily.prog.join(','),localSandbox?'3,3,3':'0,0,0');
-    assert.equal(p.weekly.claimed.join(','),localSandbox?'1,1,1,1':'0,0,0,0');
+    assert.equal(p.daily?.idx,42);assert.equal(p.daily?.prog.join(','),localSandbox?'3,3,3':'0,0,0');
+    assert.equal(p.weekly?.claimed.join(','),localSandbox?'1,1,1,1':'0,0,0,0');
   }
 });

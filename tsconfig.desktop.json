@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2023",
+      "DOM"
+    ]
+  },
+  "include": [
+    "desktop/**/*.ts",
+    "types/reset.d.ts",
+    "type-tests/desktop.ts"
+  ]
+}
