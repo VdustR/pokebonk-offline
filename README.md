@@ -18,6 +18,8 @@ Extract desktop archives and launch the included app. Install the APK on Android
 
 Android updates use the same dedicated signing certificate and application ID, allowing APK updates without uninstalling. Keep the existing app installed to retain its data. Electron updates retain the same app name, storage origin, and user-data directory.
 
+Android follows the game's responsive landscape viewport, using the [WebView wide-viewport support](https://developer.android.com/develop/ui/views/layout/webapps/targeting) needed to match Chrome scaling. Use the game's settings to adjust HUD size, touch-button size, minimap size, and camera distance. Display-cutout padding remains active to keep controls clear of the camera area.
+
 ## Unlocks and scope
 
 The current catalogs supply every League member, maximum Lab upgrades, every shop item, character looks and cosmetics, all achievements with their title/mastery-look rewards, one billion Stardust, and 999 of each preparation item. Supported maps have every difficulty and champion medal. Daily and weekly commissions are completed and claimed when loading or saving, including after a period changes.
@@ -58,7 +60,7 @@ Release WebViews disable debugging. Do not replace an installed release APK with
 
 CI checks the upstream game build and builder revision on main changes, pull requests, manual dispatch, and every six hours. A fully published matching Release skips collection, tests, packaging, and publication. Changed identities build every platform and publish only after the verification jobs pass. Pull requests never receive signing secrets or publish Releases.
 
-The collector follows the game module/CSS graph and current catalogs. Semantic patching fails on incompatible upstream structures. Payload manifests verify each bundled file's SHA-256 and length. Runtime checks cover complete local resource access, all unlock categories, persisted saves, and four maps plus the Halloween tower. These are representative checks rather than exhaustive coverage of every event or physical device.
+The collector follows the game module/CSS graph and current catalogs. Semantic patching fails on incompatible upstream structures. Payload manifests verify each bundled file's SHA-256 and length. Status badges are collected from the real status-effect catalog as mandatory images. Runtime checks decode every status icon and display an afflicted boss, alongside complete local resource access, all unlock categories, persisted saves, and four maps plus the Halloween tower. These are representative checks rather than exhaustive coverage of every event or physical device.
 
 Electron serves only the bundled custom origin with Node integration disabled, context isolation and sandboxing enabled, and runtime HTTP/HTTPS/WebSocket requests blocked. Android serves bundled assets through a local HTTPS WebView origin and requests no `INTERNET` permission. These follow the [Electron security guidance](https://www.electronjs.org/docs/latest/tutorial/security) and Android's [local-content model](https://developer.android.com/develop/ui/views/layout/webapps/load-local-content).
 

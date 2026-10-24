@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { ast, nodes, literal } from './source.mjs';
 import { patchGame, inspectGame } from './patch-game.mjs';
+import { statusIconPaths } from './status-icons.mjs';
 
 const origin = 'https://pokebonk.com';
 const output = path.resolve(process.argv[2] ?? 'build/game');
@@ -140,6 +141,8 @@ for (const value of Object.values(info.values)) if (Array.isArray(value)) for (c
 }
 const iconFunction = nodes(info.tree, n => n.type === 'FunctionDeclaration' && n.params.length > 0
   && main.slice(n.start,n.end).includes('ui/icons/${'))[0]?.id.name;
+const statusIcons=statusIconPaths(info.tree,iconFunction);
+for(const key of statusIcons)add(key);
 for (const tree of allTrees) {
   for (const call of nodes(tree, n => n.type === 'CallExpression')) {
     const method = call.callee.property?.name ?? call.callee.name;
@@ -184,7 +187,7 @@ files.delete('manifest.webmanifest');
 files.set('index.html',Buffer.from(nativeHtml));
 for(const [key,data] of files)if(key.endsWith('.html'))files.set(key,Buffer.from(data.toString().replace(/((?:src|href)=["'])\/(?!\/)/g,'$1./').replace(/href=(["'])\.\/legal\1/g,'href=$1./legal.html$1')));
 files.set('version.json', Buffer.from(JSON.stringify({build:buildId,version})));
-files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
+files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,statusIcons,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
 await rm(output,{recursive:true,force:true});
 for (const [key,data] of files) { const target=path.join(output,key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data); }
 const entries=[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);

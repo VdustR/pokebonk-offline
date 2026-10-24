@@ -21,6 +21,10 @@ try {
   page.on('response',r=>{if(r.status()>=400)missing.push({url:r.url(),status:r.status()});});
   await mkdir('evidence',{recursive:true});
   await checkGame(page,meta,'android',{gameplay:process.env.ANDROID_FULL_GAMEPLAY==='1'});
+  const viewport=await page.evaluate(()=>({content:document.querySelector('meta[name=viewport]').content,width:innerWidth,height:innerHeight,scale:visualViewport.scale}));
+  const declaredWidth=Number(viewport.content.match(/(?:^|, )width=(\d+)/)?.[1]);
+  if(declaredWidth)assert.ok(Math.abs(viewport.width-declaredWidth)<=2,'WebView must honor the responsive viewport width');
+  await writeFile('evidence/android-viewport.json',JSON.stringify(viewport,null,2));
   assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   await writeFile('evidence/android-errors.json',JSON.stringify({missing,errors},null,2));
   console.log('Android WebView unlocks, assets and persistence passed.');

@@ -33,6 +33,8 @@ export async function checkGame(page,metadata,label,{gameplay=true}={}) {
   assert.equal(await page.evaluate(()=>typeof window.process),'undefined');
   assert.equal(await page.evaluate(()=>typeof window.require),'undefined');
   assert.equal(await page.evaluate(()=>Boolean(navigator.serviceWorker?.controller)),false);
+  assert.ok(metadata.statusIcons.length>0);
+  await page.evaluate(async paths=>{await Promise.all(paths.map(async path=>{const image=new Image();image.src='/'+path;await image.decode();if(!image.naturalWidth)throw new Error('Undecoded status icon: '+path);}));},metadata.statusIcons);
   await page.getByRole('button',{name:/^成就 /}).click();
   const general=await page.locator('.q-card.done').count();
   await page.getByRole('button',{name:'外觀',exact:true}).click();
@@ -54,6 +56,10 @@ export async function checkGame(page,metadata,label,{gameplay=true}={}) {
   ]) {
     assert.equal(await page.evaluate(config=>window.__pokebonkLocalApp.startRun({...config,boosts:[]}),config),true);
     await page.waitForFunction(()=>window.__pokebonkLocalApp.run?.time>3,null,{timeout:90000});
+    if(config.biome==='glacier') {
+      await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;r.boss.spawn(91,r.player.pos.x+8,r.player.pos.z,false);const i=r.boss.bossIndex;for(const key of ['poison','sleep','para'])r.enemies[key][i]=20;r.enemies.poisonStacks[i]=3;});
+      await page.waitForFunction(()=>{const images=[...document.querySelectorAll('.bossbar .bb-sti img')];return images.length>=3&&images.every(image=>image.complete&&image.naturalWidth>0);},null,{timeout:15000});
+    }
     runs.push(await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;return {species:r.startSpecies,biome:r.biome.id,time:r.time,mode:r.mode};}));
     await page.evaluate(async()=>{const a=window.__pokebonkLocalApp;a.run.endHow='quit';await a.run.finish(false,true);a.toMenu();});
     console.log(label,'gameplay passed:',config.biome);
