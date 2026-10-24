@@ -64,10 +64,10 @@ function discover(text, parent) {
 discover(html, '/index.html');
 discover((await download('/legal.html')).toString(),'/legal.html');
 for (;;) {
-  const next = [...pending].find(key => !files.has(key.slice(1)));
-  if (!next) break;
-  const data = await download(next);
-  if (/\.(js|css|webmanifest)$/.test(next)) discover(data.toString(), next);
+  const batch = [...pending].filter(key => !files.has(key.slice(1))).slice(0,8);
+  if (!batch.length) break;
+  const downloaded = await Promise.all(batch.map(async key=>({key,data:await download(key)})));
+  for(const {key,data} of downloaded)if (/\.(js|css|webmanifest)$/.test(key)) discover(data.toString(), key);
 }
 const mainKey = [...files.keys()].find(key => key.endsWith('.js') && files.get(key).toString().includes(' as App}'));
 if (!mainKey) throw new Error('No application module found');
@@ -186,7 +186,7 @@ files.set('version.json', Buffer.from(JSON.stringify({build:buildId,version})));
 files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
 await rm(output,{recursive:true,force:true});
 for (const [key,data] of files) { const target=path.join(output,key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data); }
-const entries=[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)}));
+const entries=[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
 const cacheVersion=sha(JSON.stringify(entries));
 await writeFile(path.join(output,'asset-manifest.json'),JSON.stringify({build:buildId,cacheVersion,files:entries,missingCandidates:[...new Set(missing)].sort()},null,2));
 await writeFile(path.join(output,'sw.js'),(await readFile('runtime/sw.js','utf8')).replace('__CACHE_VERSION__',cacheVersion));
