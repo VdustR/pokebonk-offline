@@ -1,0 +1,16 @@
+{
+  "name": "pokebonk-offline-builder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "prepare:game": "node scripts/prepare-game.mjs",
+    "e2e:pwa": "node e2e/pwa.mjs",
+    "preview": "node scripts/serve.mjs"
+  },
+  "devDependencies": {
+    "acorn": "8.19.0",
+    "playwright-core": "1.61.1"
+  },
+  "packageManager": "pnpm@10.33.2"
+}
