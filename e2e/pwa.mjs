@@ -56,7 +56,17 @@ try {
     {species:92,biome:'graveyard',tier:0,mode:'tower'},
   ]) {
     assert.equal(await page.evaluate(config=>window.__pokebonkLocalApp.startRun({...config,boosts:[]}),config),true);
-    await page.waitForFunction(()=>window.__pokebonkLocalApp.run?.time>3,null,{timeout:60000});
+    // Software rendering can show the game's informational GPU notice after a
+    // run starts. Acknowledge it through the UI so its pause does not mask play.
+    for(let notice=0;notice<5;notice++) {
+      const state=await page.waitForFunction(()=>{
+        if(window.__pokebonkLocalApp.run?.time>3)return 'playing';
+        return [...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='知道了'&&button.getClientRects().length)?'notice':false;
+      },null,{timeout:60000,polling:100});
+      if(await state.jsonValue()==='playing')break;
+      await page.getByRole('button',{name:'知道了',exact:true}).first().click();
+    }
+    assert.ok(await page.evaluate(()=>window.__pokebonkLocalApp.run.time>3),'Gameplay must advance after dismissing informational notices');
     runs.push(await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;return {species:r.startSpecies,biome:r.biome.id,time:r.time,mode:r.mode,state:r.state};}));
     console.log('Offline gameplay passed:',config.biome);
     await page.evaluate(async()=>{const app=window.__pokebonkLocalApp;app.run.endHow='quit';await app.run.finish(false,true);app.toMenu();});
