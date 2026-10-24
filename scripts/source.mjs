@@ -36,11 +36,15 @@ export function configContext(source) {
   const tree = ast(source);
   const imports = tree.body.filter(node => node.type === 'ImportDeclaration');
   const exports = tree.body.filter(node => node.type === 'ExportNamedDeclaration');
-  const bindings = Object.fromEntries(imports.flatMap(node => node.specifiers.map(s => [s.local.name,
-    s.imported?.name === 't' ? [{ id: 'es' }] : (text => text)])));
+  const bindings = imports.flatMap(node => node.specifiers.map(s =>
+    `const ${s.local.name}=${s.imported?.name === 't' ? '[{id:"es"}]' : '(text=>text)'};`)).join('\n');
   const names = nodes(tree, node => node.type === 'VariableDeclarator' && node.id.type === 'Identifier').map(node => node.id.name);
   const clean = edits(source, [...imports, ...exports].map(node => ({ ...node, text: '' })));
-  const context = vm.createContext({ ...bindings });
-  const values = new vm.Script(clean + '\n;({' + [...new Set(names)].join(',') + '})').runInContext(context, { timeout: 3000 });
+  // Do not expose host functions, objects, modules, or environment to downloaded
+  // configuration. Only JSON data crosses back out; catalog functions are markers.
+  const context = vm.createContext(Object.create(null), { codeGeneration: { strings: false, wasm: false } });
+  const serialized = new vm.Script(bindings + clean + '\n;JSON.stringify({' + [...new Set(names)].join(',')
+    + '},(key,value)=>typeof value==="function"?"__function__":value)').runInContext(context, { timeout: 3000 });
+  const values = JSON.parse(serialized);
   return { tree, values };
 }

@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
 }
-
 val generatedVersionCode = providers.gradleProperty("pokebonkVersionCode").orElse("1")
 val generatedVersionName = providers.gradleProperty("pokebonkVersionName").orElse("dev")
 
@@ -59,4 +58,3 @@ android {
         )
     }
 }
-
