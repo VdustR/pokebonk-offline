@@ -20,6 +20,21 @@ Android updates use the same dedicated signing certificate and application ID, a
 
 Android follows the game's responsive landscape viewport, using the [WebView wide-viewport support](https://developer.android.com/develop/ui/views/layout/webapps/targeting) needed to match Chrome scaling. Use the game's settings to adjust HUD size, touch-button size, minimap size, and camera distance. Display-cutout padding remains active to keep controls clear of the camera area.
 
+### macOS installation and first launch
+
+These builds support macOS 13 or later. They are ad-hoc signed, with no Apple Developer ID or notarization; macOS may block a downloaded copy on first launch.
+
+1. Open Apple menu > **About This Mac** ([Apple's chip identification guide](https://support.apple.com/en-us/116943)). Choose the `darwin-arm64` ZIP for an Apple Silicon chip, or `darwin-x64` for an Intel processor. Download it from this repository's [Releases](https://github.com/VdustR/pokebonk-offline/releases).
+2. Check the ZIP against `SHA256SUMS.txt` from the same Release. In Terminal, run `shasum -a 256` followed by a space, drag the ZIP into the window, and press Return. Compare both the filename and hash with the checksum file.
+3. Double-click the ZIP in Finder. Inside the extracted `Pokebonk Offline-darwin-…` folder, drag **Pokebonk Offline.app** to **Applications**. Open that copy once. [Apple's app installation guide](https://support.apple.com/guide/mac-help/install-and-uninstall-other-apps-mh35835/mac) explains installing downloaded apps.
+4. If macOS reports that the developer cannot be verified or Apple cannot check for malicious software, dismiss that dialog. Proceed only if you trust this download and its integrity check passed.
+5. Open Apple menu > **System Settings > Privacy & Security**, then scroll to **Security**. Find the blocked **Pokebonk Offline** entry and select **Open Anyway**. Some macOS versions show **Open** before that confirmation. The exception is for this app. See [Apple's first-launch instructions](https://support.apple.com/en-us/102445).
+6. Authenticate if prompted, then confirm **Open** when macOS asks again. Future launches of the approved copy normally work from Applications. If the button is missing, try opening the app again and return to Settings: Apple says the approval is available for roughly an hour after the attempt. [Apple's exception guide](https://support.apple.com/guide/mac-help/mh40617/mac) describes the timing and authentication.
+
+A warning that the app **will damage your computer**, was moved to Trash as malware, or **is damaged** needs investigation; do not treat it as the ordinary unidentified-developer prompt. Re-download from Releases and verify the checksum for a damaged download; report a persistent failure. Managed Macs may require your administrator's approval. [Apple distinguishes these alerts](https://support.apple.com/en-us/102445).
+
+For an update, quit the app and replace its copy in Applications. Keep the same app name and user-data directory to retain local saves; a new downloaded build may require approval again.
+
 ## Unlocks and scope
 
 The current catalogs supply every League member, maximum Lab upgrades, every shop item, character looks and cosmetics, all achievements with their title/mastery-look rewards, one billion Stardust, and 999 of each preparation item. Supported maps have every difficulty and champion medal. Daily and weekly commissions are completed and claimed when loading or saving, including after a period changes.
