@@ -43,15 +43,21 @@ export function inspectGame(main, config) {
   const progressMethod = one(nodes(tree, n => n.type === 'MethodDefinition' && n.key.name === 'questProgress'), 'achievement progress method');
   const progressName = one(nodes(progressMethod, n => n.type === 'CallExpression' && n.callee.type === 'Identifier'), 'achievement progress calculation').callee.name;
   const questProgress = one(functions.filter(n => n.id.name === progressName && n.params.length === 2), 'achievement progress function');
-  const aliases = { roster: alias(rosterName), lab: alias(labName), items: alias(itemsName), biomes: alias(biomesName), profile, registry, season: seasonCall, score, quests: questName };
-  return { tree, configTree, values, aliases, backend, looks, roster, lab, items, biomes, season, versions, events, quests, questProgress };
+  const tasksReady = one(nodes(tree,n=>n.type==='MethodDefinition'&&n.key.name==='tasksReady'),'task refresh method');
+  const refresh = one(nodes(tasksReady,n=>n.type==='CallExpression'&&n.callee.type==='Identifier'&&n.arguments.length===2&&n.arguments[0].property?.name==='profile'),'task refresh function').callee.name;
+  const taskRefresh = one(functions.filter(n=>n.id.name===refresh&&n.params.length===2),'task refresh calculation');
+  const taskMethod = one(nodes(tree,n=>n.type==='MethodDefinition'&&n.key.name==='task'),'task lookup method');
+  const task = one(nodes(taskMethod,n=>n.type==='CallExpression'&&n.callee.type==='Identifier'),'task lookup function').callee.name;
+  const [,medalRanks] = findValue(array(v=>v.some(x=>x.id==='champion')&&v.every(x=>x.id&&x.name&&x.icon)), 'medal ranks');
+  const aliases = { roster: alias(rosterName), lab: alias(labName), items: alias(itemsName), biomes: alias(biomesName), profile, registry, season: seasonCall, score, quests: questName, refresh, task };
+  return { tree, configTree, values, aliases, backend, looks, roster, lab, items, biomes, season, versions, events, quests, questProgress, medalRanks, taskRefresh };
 }
 
 export function patchGame(main, config, template) {
   const info = inspectGame(main, config);
   let shim = template;
   for (const [name, value] of Object.entries(info.aliases)) shim = shim.replaceAll(`__${name.toUpperCase()}__`, value);
-  shim = shim.replaceAll('__EVENTS__', JSON.stringify(info.events));
+  shim = shim.replaceAll('__EVENTS__', JSON.stringify(info.events)).replaceAll('__MEDALS__',String(info.medalRanks.length));
   const cosmetics = [...new Set(Object.values(info.values).filter(Array.isArray).flatMap(list => list.map(entry=>entry?.id)).filter(id=>typeof id==='string'&&/^(tr|frame|title|sym|deco|skin):/.test(id)))];
   const preparations = one(Object.values(info.values).filter(value=>Array.isArray(value)&&value.length>0&&value.every(item=>item?.id&&item.desc)&&value.some(item=>item.id==='rare-candy')), 'preparation catalog').map(item=>item.id);
   shim = shim.replaceAll('__COSMETICS__',JSON.stringify(cosmetics)).replaceAll('__PREPARATIONS__',JSON.stringify(preparations));
@@ -61,7 +67,9 @@ export function patchGame(main, config, template) {
     && n.argument.callee.object.type === 'NewExpression'), 'application boot');
   const instance = main.slice(boot.argument.callee.object.start, boot.argument.callee.object.end);
   const [progressProfile, progressQuest] = info.questProgress.params.map(p => p.name);
+  const taskProfile=info.taskRefresh.params[0].name;
   const patchedMain = edits(main, [
+    { start:info.taskRefresh.body.end-1,end:info.taskRefresh.body.end-1,text:`if(${taskProfile}.localSandbox)for(const period of ['daily','weekly']){${taskProfile}[period].prog=${taskProfile}[period].ids.map(id=>${info.aliases.task}(id).goal);${taskProfile}[period].claimed=[1,1,1,1];}` },
     { start: info.questProgress.body.start + 1, end: info.questProgress.body.start + 1, text: `if(${progressProfile}.localSandbox&&${progressProfile}.quests[${progressQuest}.id])return ${progressQuest}.goal;` },
     { start: info.backend.start, end: info.backend.end, text: shim + `\nfunction ${info.backend.id.name}(){return createLocalSandboxBackend()}` },
     { start: boot.start, end: boot.end, text: `await (window.__pokebonkLocalApp=${instance}).boot()` },

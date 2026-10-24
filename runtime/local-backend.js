@@ -28,6 +28,12 @@ class LocalSandboxBackend {
     profile.lab = Object.fromEntries(__LAB__.map(upgrade => [upgrade.id, upgrade.max]));
     profile.itemsOwned = __ITEMS__.map(item => item.key);
     profile.biomes = Object.fromEntries(__BIOMES__.map(biome => [biome.id, 3]));
+    profile.medals = { ...profile.medals, ...Object.fromEntries(__BIOMES__.filter(biome=>Number.isFinite(biome.size)).flatMap(biome=>[0,1,2].map(tier=>[`${biome.id}-${tier}`,__MEDALS__]))) };
+    __REFRESH__(profile,Date.now());
+    for(const period of ['daily','weekly']) {
+      profile[period].prog = profile[period].ids.map(id=>__TASK__(id).goal);
+      profile[period].claimed = [1,1,1,1];
+    }
     profile.quests = { ...profile.quests, ...Object.fromEntries(__QUESTS__.map(quest => [quest.id, 1])) };
     const achievementCosmetics = __QUESTS__.flatMap(quest => [
       ...(quest.title ? ['title:q:' + quest.id] : []),

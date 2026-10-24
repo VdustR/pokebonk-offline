@@ -1,60 +1,71 @@
 # PokéBonk Offline
 
-Unofficial [PokéBonk](https://pokebonk.com/) unlock-all PWA. The game runs entirely in the frontend, saves locally, and downloads all bundled resources for offline play. No account backend, Electron app, APK, or signing key is required.
+Unofficial, fully bundled [PokéBonk](https://pokebonk.com/) unlock-all apps for Electron desktop and Android. All game resources ship inside each package, saves stay local, and the game runs without an account or internet connection. There is no PWA, service worker, or Pages deployment.
 
-## Install and play
+## Download and play
 
-1. Open [PokéBonk Offline](https://vdustr.github.io/pokebonk-offline/).
-2. Wait for the offline-ready message. The first visit downloads approximately 62 MiB for the currently supported build.
-3. Use Chrome/Edge's Install option on desktop or Android, or Safari's Add to Home Screen on iOS. After preparation, the installed app and browser page can reopen without a network connection.
+Download your platform's archive or APK from [Releases](https://github.com/VdustR/pokebonk-offline/releases). `SHA256SUMS.txt` verifies every download.
 
-GitHub Pages serves the game publicly over HTTPS. Repository visibility is managed separately. Saves from a previous local preview remain on that origin and do not automatically transfer to Pages.
+| Package | Platform |
+| --- | --- |
+| `pokebonk-darwin-arm64-*.zip` | Apple Silicon Mac, macOS 13+ |
+| `pokebonk-darwin-x64-*.zip` | Intel Mac, macOS 13+ |
+| `pokebonk-win32-x64-*.zip` | Windows 10+ x64 |
+| `pokebonk-linux-x64-*.tar.gz` | Linux x64 with Electron's system dependencies |
+| `pokebonk-android.apk` | Android 8+ with a WebGL-capable Android System WebView |
 
-## Unlocks and saves
+Extract desktop archives and launch the included app. Install the APK on Android. Desktop builds are not commercially signed; macOS apps have verified ad-hoc signatures and are not notarized. The operating system may require user approval when first opening a download.
 
-Catalogs determine the unlocks: every current League member, maximum Lab upgrades, all purchasable item unlocks, shiny/classic/mastery/spectral character looks, catalog cosmetics, one billion Stardust, and 999 of each preparation item. All current achievements are completed and claimed, including their titles and mastery-look rewards. Unlocks are reapplied when loading and saving. Unavailable future-season maps remain unavailable; run counters and recent results still reflect local play.
+Android updates use the same dedicated signing certificate and application ID, allowing APK updates without uninstalling. Keep the existing app installed to retain its data. Electron updates retain the same app name, storage origin, and user-data directory.
 
-Preferences, selected character, and recent run results persist in the browser's local storage. Clearing site data or changing the hosting origin can remove or separate the save. Browser storage policies can evict cached resources, so an installed PWA is not an unconditional storage guarantee. No official account or save is imported or modified.
+## Unlocks and scope
 
-Online multiplayer, clans, social features, mail, and rankings are unavailable. Original UI entry points may remain visible and return a local unsupported-feature message.
+The current catalogs supply every League member, maximum Lab upgrades, every shop item, character looks and cosmetics, all achievements with their title/mastery-look rewards, one billion Stardust, and 999 of each preparation item. Supported maps have every difficulty and champion medal. Daily and weekly commissions are completed and claimed when loading or saving, including after a period changes.
 
-## Build and preview
+Unlocks apply to both new and existing native-app saves. Actual run counters, recent results, selected character, equipped look, and preferences retain their values. Future-season maps without implemented gameplay stay unavailable. Online accounts, multiplayer, clans, social features, mail, and rankings remain unavailable; visible online entry points can show a local unsupported-feature message.
 
-Requirements: Node.js 24 and pnpm 10.33.2. Only Acorn and Playwright Core are project dependencies. No native application toolchain is needed.
+The former PWA's browser data is separate from Electron and Android app storage. Changing the distribution does not delete that browser data or modify an official account, but it does not automatically migrate browser saves into the native apps. Uninstalling an app or deleting its data can remove its local save.
+
+## Build and verify
+
+Node.js 24 and pnpm 10.33.2 are required. Electron 45.0.0 and Electron Packager 20.3.0 are pinned. Android uses the checked-in Gradle wrapper, JDK 17+, Android SDK 36, and build-tools 36.0.0. The native shells reference [VdustR/pokerogue-offline](https://github.com/VdustR/pokerogue-offline/tree/5207e18f9986717824b30cef01c034a6e46db4a3).
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm exec install-electron
 pnpm test
 pnpm prepare:game
 node scripts/verify-game.mjs
-pnpm preview
+pnpm e2e:electron
+pnpm package:electron build/game release darwin arm64
+pnpm stage:android
+cd android
+./gradlew --no-daemon assembleDebug assembleRelease lintRelease
 ```
 
-The preview serves static files on `127.0.0.1:8098`, or `PORT`. With Portless installed, use `portless pokebonk-offline pnpm preview` for a stable local URL. There are no save, account, or gameplay endpoints. For browser tests:
+A loopback static preview is available with `pnpm preview` for debugging. It is not an installable PWA. Native runtime tests use a temporary Electron user-data directory; a packaged executable can be supplied as the second argument to `e2e/electron.mjs`.
+
+To test an installed debug APK on a connected emulator or device:
 
 ```sh
-pnpm exec playwright-core install chromium
-pnpm e2e:pwa
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+ANDROID_FULL_GAMEPLAY=1 pnpm e2e:android <adb-serial>
 ```
 
-On macOS the test uses installed Chrome Stable. Set `CHROME_BIN` to test with another existing Chromium executable. CI uses Playwright's downloaded Chromium in an isolated browser profile.
+Release WebViews disable debugging. Do not replace an installed release APK with a debug APK: their signatures differ. The debug test validates unlocks, resource loading, local persistence, and optionally five representative gameplay scenarios. Emulator evidence does not establish physical-device behavior.
 
-## Offline installation and updates
+## Automatic releases
 
-The service worker downloads the complete asset manifest and verifies every resource's byte length and SHA-256 before marking the new cache ready. A failed or interrupted download removes its incomplete cache and preserves the prior version. Reconnect and use Retry if preparation fails.
+CI checks the upstream game build and builder revision on main changes, pull requests, manual dispatch, and every six hours. A fully published matching Release skips collection, tests, packaging, and publication. Changed identities build every platform and publish only after the verification jobs pass. Pull requests never receive signing secrets or publish Releases.
 
-New versions download in the background. Active games stay on their original build; close all game tabs/app windows and reopen to activate a downloaded update. Old caches are removed only when the new worker activates. Local saves are independent of the asset cache.
+The collector follows the game module/CSS graph and current catalogs. Semantic patching fails on incompatible upstream structures. Payload manifests verify each bundled file's SHA-256 and length. Runtime checks cover complete local resource access, all unlock categories, persisted saves, and four maps plus the Halloween tower. These are representative checks rather than exhaustive coverage of every event or physical device.
 
-## Automatic deployment
+Electron serves only the bundled custom origin with Node integration disabled, context isolation and sandboxing enabled, and runtime HTTP/HTTPS/WebSocket requests blocked. Android serves bundled assets through a local HTTPS WebView origin and requests no `INTERNET` permission. These follow the [Electron security guidance](https://www.electronjs.org/docs/latest/tutorial/security) and Android's [local-content model](https://developer.android.com/develop/ui/views/layout/webapps/load-local-content).
 
-The workflow runs on main changes, pull requests, manual dispatch, and every six hours. It compares the game's build identifier and builder commit with the deployed Pages build metadata. Unchanged identities skip resource collection, browser tests, and publication.
-
-Changed builds must pass semantic compatibility checks, local-save tests, cache integrity/failure tests, payload SHA-256 verification, full precaching, offline reload/persistence, and representative offline gameplay on four maps plus the Halloween tower. Only then does CI deploy the verified static payload to GitHub Pages. No GitHub Release is created. Pull requests validate without publishing. Unsupported upstream structures or missing required resources fail instead of publishing an assumed-compatible build.
-
-The collector follows module/CSS dependencies and current game catalogs, downloading data, sprites, models, maps, music, fonts, and cosmetics into ignored output. Optional candidate paths absent on the upstream site are recorded in `asset-manifest.json`; any missing resource actually requested in gameplay smoke tests fails publication. These tests are representative, not exhaustive coverage of every late-game event, browser, or physical mobile device.
+Android signing passwords remain in GitHub Actions secrets. `android/signing-certificate.sha256` pins the public certificate fingerprint so a different signing key fails publication. Every Release contains four desktop archives, one signed APK, and checksums. An incomplete draft can be resumed; it is never treated as a completed update.
 
 ## Attribution
 
-The original build-workflow approach references [VdustR/pokerogue-offline](https://github.com/VdustR/pokerogue-offline/tree/5207e18f9986717824b30cef01c034a6e46db4a3). Builder code uses the included AGPL-3.0 license.
+Builder code uses the included AGPL-3.0 license. Native packaging references the user's PokéRogue offline project; PokéBonk's game code and assets are fetched at build time, retain their original rights, and are not covered by the builder license or tracked in Git.
 
-PokéBonk's game code and resources are fetched at build time, retain their original rights, and are not covered by the builder license or tracked in Git. Credit goes to Charcher and the original contributors. Pokémon names and assets belong to their respective owners; the original game's credits and legal page remain included. This is an unofficial, noncommercial personal build with no affiliation or endorsement. The Pages website is publicly accessible; the upstream game is bundled only into deployment artifacts.
+Credit goes to Charcher and the original contributors. Pokémon names and assets belong to their respective owners; the game's credits and legal page remain included. This is an unofficial, noncommercial personal build with no affiliation or endorsement.
