@@ -34,8 +34,17 @@ export function inspectGame(main, config) {
   const score = alias(scoreDeclaration.id.name);
   const looks = one(nodes(configTree, n => n.type === 'FunctionDeclaration' && n.params.length === 4
     && ['shiny', 'spectral', 'classic', 'm1', 'm2'].every(s => nodes(n, x => x.type === 'SwitchCase' && literal(x.test) === s).length)), 'wardrobe eligibility');
-  const aliases = { roster: alias(rosterName), lab: alias(labName), items: alias(itemsName), biomes: alias(biomesName), profile, registry, season: seasonCall, score };
-  return { tree, configTree, values, aliases, backend, looks, roster, lab, items, biomes, season, versions, events };
+  const claimable = one(nodes(tree, n => n.type === 'MethodDefinition' && n.key.name === 'claimable'), 'achievement claim count');
+  const questName = one(nodes(claimable, n => n.type === 'CallExpression' && n.callee.type === 'MemberExpression' && n.callee.property.name === 'filter' && n.callee.object.type === 'Identifier'), 'achievement catalog reference').callee.object.name;
+  const questImport = one(nodes(tree, n => n.type === 'ImportSpecifier' && n.local.name === questName), 'achievement catalog import').imported.name;
+  const questLocal = one(nodes(configTree, n => n.type === 'ExportSpecifier' && n.exported.name === questImport), 'achievement catalog export').local.name;
+  const quests = values[questLocal];
+  if (!Array.isArray(quests) || !quests.length || new Set(quests.map(q => q.id)).size !== quests.length || !quests.every(q => typeof q.id === 'string' && typeof q.counter === 'string' && Number.isFinite(q.goal) && q.goal > 0 && Number.isFinite(q.reward))) throw new Error('Unsupported achievement catalog');
+  const progressMethod = one(nodes(tree, n => n.type === 'MethodDefinition' && n.key.name === 'questProgress'), 'achievement progress method');
+  const progressName = one(nodes(progressMethod, n => n.type === 'CallExpression' && n.callee.type === 'Identifier'), 'achievement progress calculation').callee.name;
+  const questProgress = one(functions.filter(n => n.id.name === progressName && n.params.length === 2), 'achievement progress function');
+  const aliases = { roster: alias(rosterName), lab: alias(labName), items: alias(itemsName), biomes: alias(biomesName), profile, registry, season: seasonCall, score, quests: questName };
+  return { tree, configTree, values, aliases, backend, looks, roster, lab, items, biomes, season, versions, events, quests, questProgress };
 }
 
 export function patchGame(main, config, template) {
@@ -51,7 +60,9 @@ export function patchGame(main, config, template) {
     && n.argument.callee.type === 'MemberExpression' && n.argument.callee.property.name === 'boot'
     && n.argument.callee.object.type === 'NewExpression'), 'application boot');
   const instance = main.slice(boot.argument.callee.object.start, boot.argument.callee.object.end);
+  const [progressProfile, progressQuest] = info.questProgress.params.map(p => p.name);
   const patchedMain = edits(main, [
+    { start: info.questProgress.body.start + 1, end: info.questProgress.body.start + 1, text: `if(${progressProfile}.localSandbox&&${progressProfile}.quests[${progressQuest}.id])return ${progressQuest}.goal;` },
     { start: info.backend.start, end: info.backend.end, text: shim + `\nfunction ${info.backend.id.name}(){return createLocalSandboxBackend()}` },
     { start: boot.start, end: boot.end, text: `await (window.__pokebonkLocalApp=${instance}).boot()` },
   ]);

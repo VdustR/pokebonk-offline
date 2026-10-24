@@ -12,7 +12,7 @@ GitHub Pages serves the game publicly over HTTPS. Repository visibility is manag
 
 ## Unlocks and saves
 
-Catalogs determine the unlocks: every current League member, maximum Lab upgrades, all purchasable item unlocks, shiny/classic/mastery/spectral character looks, catalog cosmetics, one billion Stardust, and 999 of each preparation item. Unlocks are reapplied when loading and saving. Unavailable future-season maps remain unavailable; earned achievements and recent results still reflect local play.
+Catalogs determine the unlocks: every current League member, maximum Lab upgrades, all purchasable item unlocks, shiny/classic/mastery/spectral character looks, catalog cosmetics, one billion Stardust, and 999 of each preparation item. All current achievements are completed and claimed, including their titles and mastery-look rewards. Unlocks are reapplied when loading and saving. Unavailable future-season maps remain unavailable; run counters and recent results still reflect local play.
 
 Preferences, selected character, and recent run results persist in the browser's local storage. Clearing site data or changing the hosting origin can remove or separate the save. Browser storage policies can evict cached resources, so an installed PWA is not an unconditional storage guarantee. No official account or save is imported or modified.
 
