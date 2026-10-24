@@ -179,6 +179,8 @@ files.set(mainKey, Buffer.from(patched.main));
 files.set(configKey, Buffer.from(patched.config));
 const csp = "default-src 'self' blob: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; frame-src 'none'; object-src 'none'";
 files.set('index.html', Buffer.from(html.replace('</head>', `<meta http-equiv="Content-Security-Policy" content="${csp}"><link rel="stylesheet" href="./pwa.css"><script>if(!localStorage.getItem('pokebonk.lang'))localStorage.setItem('pokebonk.lang','zht');</script></head>`).replace('</body>','<script type="module" src="./pwa-client.js"></script></body>')));
+// Keep HTML resources and navigation inside the Pages project subdirectory.
+for(const [key,data] of files)if(key.endsWith('.html'))files.set(key,Buffer.from(data.toString().replace(/((?:src|href)=["'])\/(?!\/)/g,'$1./').replace(/href=(["'])\.\/legal\1/g,'href=$1./legal.html$1')));
 files.set('pwa-client.js',await readFile('runtime/pwa-client.js'));
 files.set('pwa.css',await readFile('runtime/pwa.css'));
 files.set('manifest.webmanifest',Buffer.from(JSON.stringify({id:'./',name:'PokéBonk Offline',short_name:'PokéBonk',description:'PokéBonk with local unlocks and offline play.',lang:'zh-TW',start_url:'./?lang=zht',scope:'./',display:'fullscreen',orientation:'landscape',background_color:'#1a1630',theme_color:'#1a1630',icons:[{src:'icons/icon-192.png',sizes:'192x192',type:'image/png'},{src:'icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}]},null,2)));

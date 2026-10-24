@@ -6,7 +6,8 @@ import { createStaticServer } from '../scripts/serve.mjs';
 
 const root=path.resolve(process.argv[2]??'build/game');
 const meta=JSON.parse(await readFile(path.join(root,'offline-build.json'),'utf8'));
-const server=createStaticServer(root);
+const mount='/pokebonk-offline/';
+const server=createStaticServer(root,mount);
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const origin=`http://127.0.0.1:${server.address().port}`;
 const executablePath=process.env.CHROME_BIN||(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined);
@@ -23,7 +24,7 @@ try {
   page.on('pageerror',error=>errors.push(error.message));
   context.on('request',request=>{if(/^https?:/.test(request.url())&&!request.url().startsWith(origin+'/'))external.push(request.url());});
   context.on('response',response=>{if(response.status()>=400)missing.push({url:response.url(),status:response.status()});});
-  await page.goto(origin+'/?lang=zht');
+  await page.goto(origin+mount+'?lang=zht');
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
   for(const label of ['跳過','知道了']) {
     const button=page.getByRole('button',{name:label,exact:true});
@@ -31,7 +32,8 @@ try {
   }
   console.log('Game loaded; waiting for full offline cache.');
   await page.waitForFunction(()=>window.__pokebonkOfflineState==='ready',null,{timeout:180000});
-  console.log('Complete offline cache ready.');
+  console.log('Complete offline cache ready under the Pages project path.');
+  assert.equal(await page.evaluate(async()=>(await navigator.serviceWorker.ready).scope),origin+mount);
   const profile=await page.evaluate(()=>window.__pokebonkLocalApp.meta.profile);
   assert.equal(profile.league.length,meta.league);
   assert.equal(Object.keys(profile.lab).length,meta.lab);
@@ -47,7 +49,17 @@ try {
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.lastSpecies===150,null,{timeout:120000});
   assert.equal(await page.evaluate(()=>localStorage.getItem('offline-test-marker')),'preserved');
   assert.equal(await page.evaluate(()=>Boolean(navigator.serviceWorker.controller)),true);
-  console.log('Offline reload and save persistence passed.');
+  const legal=await context.newPage();
+  await legal.goto(origin+mount+'legal.html');
+  await legal.close();
+  await page.bringToFront();
+  // Reload recreates the upstream GPU notice. Dismiss menu dialogs before
+  // starting a run, where the game's input layer can capture pointer events.
+  for(const label of ['跳過','知道了']) {
+    const button=page.getByRole('button',{name:label,exact:true});
+    if(await button.first().isVisible().catch(()=>false))await button.first().click();
+  }
+  console.log('Offline reload, legal page and save persistence passed.');
   for(const config of [
     {species:4,biome:'forest',tier:0},
     {species:150,biome:'desert',tier:2},
