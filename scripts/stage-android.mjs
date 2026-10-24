@@ -1,0 +1,11 @@
+import { cp, mkdir, rm, readFile } from 'node:fs/promises';
+import path from 'node:path';
+const game = path.resolve(process.argv[2] ?? 'build/game');
+const target = 'android/app/src/main/assets/www';
+await readFile(path.join(game, 'asset-manifest.json'));
+await rm(target, { recursive: true, force: true });
+await mkdir(target, { recursive: true });
+await cp(game, target, { recursive: true });
+const drawable='android/app/src/main/res/drawable-nodpi';
+await mkdir(drawable,{recursive:true});
+await cp(path.join(game,'icons/icon-512.png'),`${drawable}/pokebonk_logo.png`);

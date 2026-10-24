@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {ast,nodes} from '../scripts/source.mjs';
 import { patchGame } from '../scripts/patch-game.mjs';
 
 const config = `
@@ -9,6 +11,7 @@ const shopSymbol=[{key:'soda-pop',price:1}];
 const biomeSymbol=[{id:'forest',size:10}];
 const seasonSymbol={maxDex:151,season:2};
 const versionsSymbol={'data/pokemon.json':'a',models:'b',pmd:'c'};
+const rankSymbol=[{id:'champion',name:'Champion',icon:'champion'}];
 const questSymbol=[{id:'k100',counter:'kills',goal:100,reward:50}];
 const preparationSymbol=[{id:'rare-candy',desc:'Preparation'}];
 const scoreSymbol=r=>r.kills+r.time+(r.victory?1:0);
@@ -22,8 +25,10 @@ const registrySymbol=new class{pokemon=[];movesByKey=new Map;};
 function profileSymbol(){return {stardust:0,lab:{},league:[],lastSpecies:4,settings:{}};}
 function backendSymbol(){return new Http('https://api.pokebonk.com');}
 class Http{season(){return this.info??seasonFunction(Date.now());}}
+function refreshSymbol(p,now){for(const period of ['daily','weekly'])p[period]={idx:now,ids:['task1','task2','task3'],prog:[0,0,0],claimed:[0,0,0,0]};}
+function taskSymbol(id){return {goal:3};}
 function progressSymbol(p,q){return p.counters[q.counter]??0;}
-class Application{boot(){}claimable(){return questAlias.filter(q=>!this.profile.quests[q.id]).length;}questProgress(q){return progressSymbol(this.profile,q);}}
+class Application{boot(){}tasksReady(){refreshSymbol(this.profile,Date.now());}task(period,index){return taskSymbol(this.profile[period].ids[index]);}claimable(){return questAlias.filter(q=>!this.profile.quests[q.id]).length;}questProgress(q){return progressSymbol(this.profile,q);}}
 await new Application().boot();`;
 
 test('semantic patches survive renamed upstream identifiers',()=>{
@@ -41,4 +46,15 @@ test('missing wardrobe cases reject the complete patch',()=>{
 
 test('incompatible achievement catalogs fail closed',()=>{
   assert.throws(()=>patchGame(main,config.replace("counter:'kills',goal:100", "counter:'kills',goal:NaN"),''),/achievement catalog/);
+});
+
+test('period changes grant local task rewards while ordinary profiles keep progression',()=>{
+  const patched=patchGame(main,config,'').main;
+  const functions=nodes(ast(patched),n=>n.type==='FunctionDeclaration'&&['refreshSymbol','taskSymbol'].includes(n.id.name)).map(n=>patched.slice(n.start,n.end)).join('\n');
+  for(const localSandbox of [false,true]) {
+    const p={localSandbox};
+    new vm.Script(functions+';refreshSymbol(p,42);').runInNewContext({p});
+    assert.equal(p.daily.idx,42);assert.equal(p.daily.prog.join(','),localSandbox?'3,3,3':'0,0,0');
+    assert.equal(p.weekly.claimed.join(','),localSandbox?'1,1,1,1':'0,0,0,0');
+  }
 });

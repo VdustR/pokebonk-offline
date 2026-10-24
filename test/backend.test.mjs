@@ -10,12 +10,13 @@ function backend(storage = new Map()) {
   const context = { structuredClone,crypto:webcrypto,Date,document:{title:''},
     localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
     __PROFILE__:defaults,__SEASON__:()=>({season:2}),__ROSTER__:[{id:4},{id:150}],__REGISTRY__:{pokemon:[{id:4},{id:5},{id:150}],get:id=>({family:id}),root:id=>({id})},
-    __LAB__:[{id:'move',max:4}],__ITEMS__:[{key:'soda-pop'}],__BIOMES__:[{id:'forest'}],__EVENTS__:[],__QUESTS__:[{id:"kills100",title:"Veteran"},{id:"look4",look:{member:4,n:1}}],__SCORE__:()=>0,__COSMETICS__:['frame:master'],__PREPARATIONS__:['rare-candy','honey'] };
+    __LAB__:[{id:'move',max:4}],__ITEMS__:[{key:'soda-pop'}],__BIOMES__:[{id:'forest',size:100},{id:'future'}],__EVENTS__:[],__MEDALS__:4,__REFRESH__:profile=>{for(const period of ['daily','weekly'])profile[period]??={ids:['task1','task2','task3']};},__TASK__:()=>({goal:3}),__QUESTS__:[{id:"kills100",title:"Veteran"},{id:"look4",look:{member:4,n:1}}],__SCORE__:()=>0,__COSMETICS__:['frame:master'],__PREPARATIONS__:['rare-candy','honey'] };
   return new vm.Script(template+'\n;createLocalSandboxBackend()').runInNewContext(context);
 }
 test('new profile unlocks catalogs and reload preserves preferences and starter',async()=>{
   const storage=new Map(), b=backend(storage);
   const p=await b.loadProfile();
+  assert.equal(p.medals['forest-2'],4);assert.equal(p.medals['future-0'],undefined);assert.equal(p.daily.prog[0],3);assert.equal(p.daily.claimed.join(','),'1,1,1,1');assert.equal(p.weekly.claimed.join(','),'1,1,1,1');
   assert.equal(p.stardust,1e9);assert.equal(p.league.length,2);assert.equal(p.lab.move,4);assert.equal(p.itemsOwned[0],'soda-pop');
   p.settings.audio=0;await b.savePrefs(null,p);await b.chooseStarter(null,150);
   const reload=await backend(storage).loadProfile();assert.equal(reload.lastSpecies,150);assert.equal(reload.settings.audio,0);
