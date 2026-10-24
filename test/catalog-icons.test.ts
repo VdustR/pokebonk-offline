@@ -44,8 +44,9 @@ test('payload verification rejects a catalog omission despite a consistent manif
       for(const[name,bytes]of entries){await mkdir(path.dirname(path.join(root,name)),{recursive:true});await writeFile(path.join(root,name),bytes);}
       await writeFile(path.join(root,'asset-manifest.json'),JSON.stringify({files:[...entries].map(([name,bytes])=>({name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}))}));
     };
-    const verify=()=>execFileSync(process.execPath,['scripts/verify-game.ts',root],{encoding:'utf8',stdio:'pipe'});
+    const verify=(expectedBuild='fixture')=>execFileSync(process.execPath,['scripts/verify-game.ts',root],{encoding:'utf8',stdio:'pipe',env:{...process.env,EXPECTED_BUILD:expectedBuild}});
     await write(false,false);assert.match(verify(),/Verified 6 payload hashes/);
+    assert.throws(()=>verify('another-build'),/Upstream changed during collection/);
     await write(true,false);assert.throws(verify,/Missing catalog icon: assets\/ui\/icons\/r-love.png/);
     await write(false,true);assert.throws(verify,/Invalid catalog PNG: assets\/ui\/icons\/r-love.png/);
   } finally {await rm(root,{recursive:true,force:true});}
