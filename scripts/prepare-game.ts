@@ -2,9 +2,9 @@ import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { ast, nodes, nodesOf, literal, maybeName, nameOf, one, requireNode } from './source.ts';
+import { ast, nodes, nodesOf, literal, maybeName, nameOf, requireNode } from './source.ts';
 import { patchGame, inspectGame } from './patch-game.ts';
-import { statusIconPaths } from './status-icons.ts';
+import { inspectIconCatalogs } from './catalog-icons.ts';
 
 import {record, text as textValue, finite, list, isRecord, objectArray} from '../types/data.ts';
 
@@ -156,14 +156,13 @@ for (const value of Object.values(info.values)) if (objectArray(value)) for (con
   }
   if (typeof entry['style'] === 'string' && entry['style']) add(`assets/ui/frames/look-${entry['style']}.png`, true);
 }
-const iconFunction = nameOf(one(nodesOf(info.tree, 'FunctionDeclaration', n => n.params.length > 0 && main.slice(n.start,n.end).includes('ui/icons/${')), 'icon function').id);
-const statusIcons=statusIconPaths(info.tree,iconFunction);
-for(const key of statusIcons)add(key);
+const {iconFunction,statusIcons,reactionIcons}=inspectIconCatalogs(main,config);
+for(const key of [...statusIcons,...reactionIcons])add(key);
 for (const tree of allTrees) {
   for (const call of nodesOf(tree, 'CallExpression')) {
     const method = call.callee.type === 'MemberExpression' ? maybeName(call.callee.property) : maybeName(call.callee);
     const words = nodes(call.arguments[0], n => typeof literal(n) === 'string').map(literal).filter((s): s is string => typeof s === 'string' && /^[\w-]+$/.test(s));
-    if (method === iconFunction) words.forEach(s => add(`assets/ui/icons/${s}.png`, true));
+    if (method === iconFunction && call.arguments[0]?.type !== 'BinaryExpression') words.forEach(s => add(`assets/ui/icons/${s}.png`, true));
     if (method && ['model','place','bu','xu'].includes(method)) words.forEach(s => add(`assets/models/${s}.glb`, true));
   }
   for (const property of nodesOf(tree, 'Property', n => ['model','shrine','portal','gate'].includes(maybeName(n.key) ?? ''))) {
@@ -204,7 +203,7 @@ files.delete('manifest.webmanifest');
 files.set('index.html',Buffer.from(nativeHtml));
 for(const [key,data] of files)if(key.endsWith('.html'))files.set(key,Buffer.from(data.toString().replace(/((?:src|href)=["'])\/(?!\/)/g,'$1./').replace(/href=(["'])\.\/legal\1/g,'href=$1./legal.html$1')));
 files.set('version.json', Buffer.from(JSON.stringify({build:buildId,version})));
-files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,statusIcons,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
+files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,statusIcons,reactionIcons,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
 await rm(output,{recursive:true,force:true});
 for (const [key,data] of files) { const target=path.join(output,key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data); }
 const entries=[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
