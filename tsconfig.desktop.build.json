@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.desktop.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "./desktop",
+    "outDir": "./dist/desktop",
+    "noEmitOnError": true
+  },
+  "include": [
+    "desktop/**/*.ts",
+    "types/reset.d.ts"
+  ]
+}

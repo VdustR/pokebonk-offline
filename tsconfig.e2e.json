@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ]
+  },
+  "include": [
+    "e2e/**/*.ts",
+    "types/game-window.d.ts",
+    "types/reset.d.ts",
+    "type-tests/e2e.ts"
+  ]
+}

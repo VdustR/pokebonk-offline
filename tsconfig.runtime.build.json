@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.runtime.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "./runtime",
+    "outDir": "./dist/runtime",
+    "noEmitOnError": true
+  },
+  "include": [
+    "runtime/**/*.ts",
+    "types/reset.d.ts",
+    "types/runtime-globals.d.ts"
+  ]
+}

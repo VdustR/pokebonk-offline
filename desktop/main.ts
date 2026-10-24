@@ -31,8 +31,8 @@ const MIME_TYPES = new Map([
   [".woff2", "font/woff2"],
 ]);
 
-if (!app.isPackaged && process.env.POKEBONK_REMOTE_DEBUGGING_PORT) {
-  app.commandLine.appendSwitch("remote-debugging-port", process.env.POKEBONK_REMOTE_DEBUGGING_PORT);
+if (!app.isPackaged && process.env['POKEBONK_REMOTE_DEBUGGING_PORT']) {
+  app.commandLine.appendSwitch("remote-debugging-port", process.env['POKEBONK_REMOTE_DEBUGGING_PORT']);
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -50,8 +50,8 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 function getGameDirectory() {
-  if (!app.isPackaged && process.env.POKEBONK_GAME_DIR) {
-    return path.resolve(process.env.POKEBONK_GAME_DIR);
+  if (!app.isPackaged && process.env['POKEBONK_GAME_DIR']) {
+    return path.resolve(process.env['POKEBONK_GAME_DIR']);
   }
   if (app.isPackaged) {
     return path.join(process.resourcesPath, "game");
@@ -59,7 +59,7 @@ function getGameDirectory() {
   return path.join(moduleDirectory, "game");
 }
 
-function resolveGamePath(requestUrl) {
+function resolveGamePath(requestUrl: string) {
   const url = new URL(requestUrl);
   if (url.host !== APP_HOST) {
     return undefined;
@@ -85,20 +85,20 @@ function configureOfflineSession() {
   );
 }
 
-function parseRange(rangeHeader, size) {
+function parseRange(rangeHeader: string | null, size: number) {
   const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader ?? "");
   if (!match || (!match[1] && !match[2])) return undefined;
 
   let start;
   let end;
   if (!match[1]) {
-    const suffixLength = Number.parseInt(match[2], 10);
+    const suffixLength = Number.parseInt(match[2] ?? "", 10);
     if (!Number.isFinite(suffixLength) || suffixLength <= 0) return undefined;
     start = Math.max(size - suffixLength, 0);
     end = size - 1;
   } else {
     start = Number.parseInt(match[1], 10);
-    end = match[2] ? Number.parseInt(match[2], 10) : size - 1;
+    end = match[2] ? Number.parseInt(match[2] ?? "", 10) : size - 1;
   }
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start >= size || end < start) {
     return undefined;
@@ -106,7 +106,7 @@ function parseRange(rangeHeader, size) {
   return { start, end: Math.min(end, size - 1) };
 }
 
-function serveGameFile(request, resolvedPath) {
+function serveGameFile(request: Request, resolvedPath: string) {
   if (!new Set(["GET", "HEAD"]).has(request.method)) {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -123,7 +123,7 @@ function serveGameFile(request, resolvedPath) {
 
   const start = range?.start ?? 0;
   const end = range?.end ?? fileStat.size - 1;
-  const headers = {
+  const headers: Record<string,string> = {
     "Accept-Ranges": "bytes",
     "Access-Control-Allow-Origin": "*",
     "Cache-Control": "no-store",
@@ -132,9 +132,11 @@ function serveGameFile(request, resolvedPath) {
   };
   if (range) headers["Content-Range"] = `bytes ${start}-${end}/${fileStat.size}`;
 
+  // Node creates a WHATWG stream of file bytes; Electron consumes the same
+  // stream contract, while Node and DOM declare different stream types.
   const body = request.method === "HEAD" || fileStat.size === 0
     ? null
-    : Readable.toWeb(createReadStream(resolvedPath, { start, end }));
+    : Readable.toWeb(createReadStream(resolvedPath, { start, end })) as ReadableStream<Uint8Array>;
   const response = new Response(body, {
     headers,
     status: range ? 206 : 200,
@@ -181,7 +183,7 @@ function createWindow() {
   return window;
 }
 
-if (process.env.POKEBONK_USER_DATA_DIR) app.setPath("userData", path.resolve(process.env.POKEBONK_USER_DATA_DIR));
+if (process.env['POKEBONK_USER_DATA_DIR']) app.setPath("userData", path.resolve(process.env['POKEBONK_USER_DATA_DIR']));
 
 void app.whenReady().then(() => {
   const gameDirectory = getGameDirectory();

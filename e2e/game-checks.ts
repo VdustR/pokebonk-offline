@@ -1,7 +1,9 @@
+import type {Page} from 'playwright-core';
+import type {BuildMetadata} from '../types/metadata.ts';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 
-async function dismissMenuNotices(page) {
+async function dismissMenuNotices(page: Page) {
   for(let attempt=0;attempt<3;attempt++) {
     const gpu=page.getByRole('button',{name:'知道了',exact:true}).first();
     if(await gpu.isVisible().catch(()=>false))await gpu.click();
@@ -10,11 +12,15 @@ async function dismissMenuNotices(page) {
   }
 }
 
-export async function checkGame(page,metadata,label,{gameplay=true}={}) {
+export async function checkGame(page: Page,metadata: BuildMetadata,label: string,{gameplay=true}={}) {
   await page.addInitScript(()=>{
     const key='pokebonk.local.profile.v1';
-    const profile=JSON.parse(localStorage.getItem(key)||'{}');
-    profile.settings={...profile.settings,quality:'low',pixel:2,tips:false};
+    const value: unknown=JSON.parse(localStorage.getItem(key)||'{}');
+    if (typeof value!=='object' || value===null || Array.isArray(value)) throw new Error('Invalid saved profile');
+    const profile=value as Record<string,unknown>;
+    const settings=profile['settings'];
+    if(settings!==undefined && (typeof settings!=='object' || settings===null || Array.isArray(settings)))throw new Error('Invalid saved settings');
+    profile['settings']={...settings,quality:'low',pixel:2,tips:false};
     localStorage.setItem(key,JSON.stringify(profile));
   });
   await page.reload();
@@ -28,10 +34,10 @@ export async function checkGame(page,metadata,label,{gameplay=true}={}) {
   assert.equal(profile.stardust,1e9);
   assert.equal(Object.keys(profile.quests).length,metadata.achievements);
   assert.equal(Object.values(profile.medals).filter(rank=>rank===metadata.medalRank).length,metadata.medals);
-  for(const period of ['daily','weekly'])assert.deepEqual(profile[period].claimed,[1,1,1,1]);
+  for(const period of ['daily','weekly'] as const)assert.deepEqual(profile[period].claimed,[1,1,1,1]);
   assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.meta.tasksReady()),0);
-  assert.equal(await page.evaluate(()=>typeof window.process),'undefined');
-  assert.equal(await page.evaluate(()=>typeof window.require),'undefined');
+  assert.equal(await page.evaluate(()=>typeof Reflect.get(window,'process')),'undefined');
+  assert.equal(await page.evaluate(()=>typeof Reflect.get(window,'require')),'undefined');
   assert.equal(await page.evaluate(()=>Boolean(navigator.serviceWorker?.controller)),false);
   assert.ok(metadata.statusIcons.length>0);
   await page.evaluate(async paths=>{await Promise.all(paths.map(async path=>{const image=new Image();image.src='/'+path;await image.decode();if(!image.naturalWidth)throw new Error('Undecoded status icon: '+path);}));},metadata.statusIcons);
@@ -55,16 +61,16 @@ export async function checkGame(page,metadata,label,{gameplay=true}={}) {
     {species:92,biome:'graveyard',tier:0,mode:'tower'},
   ]) {
     assert.equal(await page.evaluate(config=>window.__pokebonkLocalApp.startRun({...config,boosts:[]}),config),true);
-    await page.waitForFunction(()=>window.__pokebonkLocalApp.run?.time>3,null,{timeout:90000});
+    await page.waitForFunction(()=>(window.__pokebonkLocalApp.run?.time ?? 0)>3,null,{timeout:90000});
     if(config.biome==='glacier') {
-      await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;r.boss.spawn(91,r.player.pos.x+8,r.player.pos.z,false);const i=r.boss.bossIndex;for(const key of ['poison','sleep','para'])r.enemies[key][i]=20;r.enemies.poisonStacks[i]=3;});
-      await page.waitForFunction(()=>{const images=[...document.querySelectorAll('.bossbar .bb-sti img')];return images.length>=3&&images.every(image=>image.complete&&image.naturalWidth>0);},null,{timeout:15000});
+      await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;if(!r)throw new Error('Expected active run');r.boss.spawn(91,r.player.pos.x+8,r.player.pos.z,false);const i=r.boss.bossIndex;for(const key of ['poison','sleep','para'] as const)r.enemies[key][i]=20;r.enemies.poisonStacks[i]=3;});
+      await page.waitForFunction(()=>{const images=[...document.querySelectorAll<HTMLImageElement>('.bossbar .bb-sti img')];return images.length>=3&&images.every(image=>image.complete&&image.naturalWidth>0);},null,{timeout:15000});
     }
-    runs.push(await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;return {species:r.startSpecies,biome:r.biome.id,time:r.time,mode:r.mode};}));
-    await page.evaluate(async()=>{const a=window.__pokebonkLocalApp;a.run.endHow='quit';await a.run.finish(false,true);a.toMenu();});
+    runs.push(await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;if(!r)throw new Error('Expected active run');return {species:r.startSpecies,biome:r.biome.id,time:r.time,mode:r.mode};}));
+    await page.evaluate(async()=>{const a=window.__pokebonkLocalApp;if(!a.run)throw new Error('Expected active run');a.run.endHow='quit';await a.run.finish(false,true);a.toMenu();});
     console.log(label,'gameplay passed:',config.biome);
   }
-  await page.waitForFunction(()=>document.getAnimations().filter(a=>Number.isFinite(a.effect.getTiming().iterations)).every(a=>a.playState!=='running'),null,{timeout:10000});
+  await page.waitForFunction(()=>document.getAnimations().filter(a=>Number.isFinite(a.effect?.getTiming().iterations)).every(a=>a.playState!=='running'),null,{timeout:10000});
   await page.screenshot({path:`evidence/${label}.png`});
   await writeFile(`evidence/${label}.json`,JSON.stringify({metadata,runs,persistence:true,achievements:metadata.achievements,medals:metadata.medals,tasksClaimed:true},null,2));
 }

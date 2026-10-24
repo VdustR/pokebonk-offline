@@ -5,7 +5,7 @@ import process from "node:process";
 
 const [appArgument] = process.argv.slice(2);
 if (!appArgument) {
-  throw new Error("Usage: node scripts/verify-macos-electron-app.mjs <app-bundle>");
+  throw new Error("Usage: node scripts/verify-macos-electron-app.ts <app-bundle>");
 }
 if (process.platform !== "darwin") {
   throw new Error("macOS Electron app verification must run on macOS");

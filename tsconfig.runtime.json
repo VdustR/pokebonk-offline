@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "moduleDetection": "legacy"
+  },
+  "include": [
+    "runtime/**/*.ts",
+    "types/runtime-globals.d.ts",
+    "types/reset.d.ts",
+    "type-tests/runtime.ts"
+  ]
+}

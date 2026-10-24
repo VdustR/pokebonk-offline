@@ -3,19 +3,30 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/*.test.mjs",
-    "prepare:game": "node scripts/prepare-game.mjs",
-    "preview": "node scripts/serve.mjs",
-    "e2e:electron": "node e2e/electron.mjs",
-    "package:electron": "node scripts/package-electron.mjs",
-    "stage:android": "node scripts/stage-android.mjs",
-    "e2e:android": "node e2e/android.mjs"
+    "test": "pnpm build && node --test test/*.test.ts",
+    "prepare:game": "pnpm build && node scripts/prepare-game.ts",
+    "preview": "node scripts/serve.ts",
+    "e2e:electron": "pnpm build && node e2e/electron.ts",
+    "package:electron": "pnpm build && node scripts/package-electron.ts",
+    "stage:android": "node scripts/stage-android.ts",
+    "e2e:android": "node e2e/android.ts",
+    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.desktop.json && tsc -p tsconfig.runtime.json && tsc -p tsconfig.e2e.json && node scripts/verify-types.ts",
+    "build": "tsc -p tsconfig.desktop.build.json && tsc -p tsconfig.runtime.build.json",
+    "test:types": "node scripts/verify-type-gates.ts"
   },
   "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "@total-typescript/ts-reset": "0.6.1",
+    "@tsconfig/strictest": "2.0.8",
+    "@types/debug": "4.1.13",
+    "@types/node": "24.19.2",
     "acorn": "8.19.0",
-    "playwright-core": "1.61.1",
     "electron": "45.0.0",
-    "@electron/packager": "20.3.0"
+    "playwright-core": "1.61.1",
+    "typescript": "7.0.2"
   },
-  "packageManager": "pnpm@10.33.2"
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=24.12.0"
+  }
 }

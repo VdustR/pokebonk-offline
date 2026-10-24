@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import {errorCode} from '../types/data.ts';
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -6,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const [appArgument] = process.argv.slice(2);
 if (!appArgument) {
-  throw new Error("Usage: node scripts/finalize-macos-electron-app.mjs <app-bundle>");
+  throw new Error("Usage: node scripts/finalize-macos-electron-app.ts <app-bundle>");
 }
 if (process.platform !== "darwin") {
   throw new Error("macOS Electron app signing must run on macOS");
@@ -19,12 +20,12 @@ const bundleExtensions = new Set([".app", ".appex", ".bundle", ".framework", ".x
 const nestedCodeRoots = ["Frameworks", "Helpers", "Library", "PlugIns", "XPCServices"]
   .map((directory) => path.join(appPath, "Contents", directory));
 
-async function collectNestedCode(directory, codeFiles, bundles) {
+async function collectNestedCode(directory: string, codeFiles: string[], bundles: string[]) {
   let entries;
   try {
     entries = await readdir(directory, { withFileTypes: true });
   } catch (error) {
-    if (error.code === "ENOENT") {
+    if (errorCode(error) === "ENOENT") {
       return;
     }
     throw error;
@@ -52,14 +53,14 @@ async function collectNestedCode(directory, codeFiles, bundles) {
   }
 }
 
-function deepestFirst(paths) {
+function deepestFirst(paths: string[]) {
   return [...new Set(paths)].sort((left, right) => {
     const depthDifference = right.split(path.sep).length - left.split(path.sep).length;
     return depthDifference || left.localeCompare(right);
   });
 }
 
-function sign(codePath) {
+function sign(codePath: string) {
   execFileSync(
     "/usr/bin/codesign",
     ["--force", "--sign", "-", "--timestamp=none", codePath],
@@ -67,8 +68,8 @@ function sign(codePath) {
   );
 }
 
-const codeFiles = [];
-const bundles = [];
+const codeFiles: string[] = [];
+const bundles: string[] = [];
 for (const nestedCodeRoot of nestedCodeRoots) {
   await collectNestedCode(nestedCodeRoot, codeFiles, bundles);
 }
@@ -82,6 +83,6 @@ sign(appPath);
 
 execFileSync(
   process.execPath,
-  [path.join(scriptDirectory, "verify-macos-electron-app.mjs"), appPath],
+  [path.join(scriptDirectory, "verify-macos-electron-app.ts"), appPath],
   { stdio: "inherit" },
 );

@@ -30,14 +30,16 @@ The former PWA's browser data is separate from Electron and Android app storage.
 
 ## Build and verify
 
-Node.js 24 and pnpm 10.33.2 are required. Electron 45.0.0 and Electron Packager 20.3.0 are pinned. Android uses the checked-in Gradle wrapper, JDK 17+, Android SDK 36, and build-tools 36.0.0. The native shells reference [VdustR/pokerogue-offline](https://github.com/VdustR/pokerogue-offline/tree/5207e18f9986717824b30cef01c034a6e46db4a3).
+Node.js 24.12+ and pnpm 10.33.2 are required. Electron 45.0.0 and Electron Packager 20.3.0 are pinned. Android uses the checked-in Gradle wrapper, JDK 17+, Android SDK 36, and build-tools 36.0.0. The native shells reference [VdustR/pokerogue-offline](https://github.com/VdustR/pokerogue-offline/tree/5207e18f9986717824b30cef01c034a6e46db4a3).
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm exec install-electron
+pnpm typecheck
+pnpm test:types
 pnpm test
 pnpm prepare:game
-node scripts/verify-game.mjs
+node scripts/verify-game.ts
 pnpm e2e:electron
 pnpm package:electron build/game release darwin arm64
 pnpm stage:android
@@ -45,7 +47,9 @@ cd android
 ./gradlew --no-daemon assembleDebug assembleRelease lintRelease
 ```
 
-A loopback static preview is available with `pnpm preview` for debugging. It is not an installable PWA. Native runtime tests use a temporary Electron user-data directory; a packaged executable can be supplied as the second argument to `e2e/electron.mjs`.
+Maintained tools, tests, Electron code, and the browser backend use TypeScript 7.0.2 with `@tsconfig/strictest` and application-scoped `ts-reset`. See [TypeScript boundaries and verification](docs/typescript.md) for the environment split, runtime emission, coverage gate, and incremental-cache limitation.
+
+A loopback static preview is available with `pnpm preview` for debugging. It is not an installable PWA. Native runtime tests use a temporary Electron user-data directory; a packaged executable can be supplied as the second argument to `e2e/electron.ts`.
 
 To test an installed debug APK on a connected emulator or device:
 
