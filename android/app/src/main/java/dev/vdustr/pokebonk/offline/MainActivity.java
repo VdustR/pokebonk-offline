@@ -66,6 +66,10 @@ public final class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setSafeBrowsingEnabled(true);
+        // Honor the game's responsive viewport, including its landscape scale.
+        // WebView defaults differ from Chrome and otherwise ignore viewport width.
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(true);
         settings.setSupportZoom(false);
 
         CookieManager.getInstance().setAcceptCookie(false);
