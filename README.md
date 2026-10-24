@@ -8,11 +8,11 @@ Download the **Unlocked** archive or APK for your platform from the [latest rele
 
 | Package | Platform |
 | --- | --- |
-| `pokebonk-darwin-arm64-*.zip` | Apple Silicon Mac, macOS 13+ |
-| `pokebonk-darwin-x64-*.zip` | Intel Mac, macOS 13+ |
-| `pokebonk-win32-x64-*.zip` | Windows 10+ x64 |
-| `pokebonk-linux-x64-*.tar.gz` | Linux x64 with Electron's system dependencies |
-| `pokebonk-android.apk` | Android 8+ with a WebGL-capable Android System WebView |
+| `pokebonk-offline-*-unlocked-darwin-arm64-*.zip` | Apple Silicon Mac, macOS 13+ |
+| `pokebonk-offline-*-unlocked-darwin-x64-*.zip` | Intel Mac, macOS 13+ |
+| `pokebonk-offline-*-unlocked-win32-x64-*.zip` | Windows 10+ x64 |
+| `pokebonk-offline-*-unlocked-linux-x64-*.tar.gz` | Linux x64 with Electron's system dependencies |
+| `pokebonk-offline-*-unlocked-android.apk` | Android 8+ with a WebGL-capable Android System WebView |
 
 Extract desktop archives and launch the included app. Install the APK on Android. Desktop builds are not commercially signed; macOS apps have verified ad-hoc signatures and are not notarized. The operating system may require user approval when first opening a download.
 
@@ -24,7 +24,7 @@ Android follows the game's responsive landscape viewport, using the [WebView wid
 
 These builds support macOS 13 or later. They are ad-hoc signed, with no Apple Developer ID or notarization; macOS may block a downloaded copy on first launch.
 
-1. Open Apple menu > **About This Mac** ([Apple's chip identification guide](https://support.apple.com/en-us/116943)). Choose the `darwin-arm64` ZIP for an Apple Silicon chip, or `darwin-x64` for an Intel processor. Download it from this repository's [Releases](https://github.com/VdustR/pokebonk-offline/releases).
+1. Open Apple menu > **About This Mac** ([Apple's chip identification guide](https://support.apple.com/en-us/116943)). Choose the `darwin-arm64` ZIP for an Apple Silicon chip, or `darwin-x64` for an Intel processor. Download it from this repository's [Releases](https://github.com/VdustR/pokebonk-offline/releases/latest).
 2. Check the ZIP against `SHA256SUMS.txt` from the same Release. In Terminal, run `shasum -a 256` followed by a space, drag the ZIP into the window, and press Return. Compare both the filename and hash with the checksum file.
 3. Double-click the ZIP in Finder. Inside the extracted `Pokebonk Offline-darwin-…` folder, drag **Pokebonk Offline.app** to **Applications**. Open that copy once. [Apple's app installation guide](https://support.apple.com/guide/mac-help/install-and-uninstall-other-apps-mh35835/mac) explains installing downloaded apps.
 4. If macOS reports that the developer cannot be verified or Apple cannot check for malicious software, dismiss that dialog. Proceed only if you trust this download and its integrity check passed.
