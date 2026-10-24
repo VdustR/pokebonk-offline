@@ -37,7 +37,7 @@ For an update, quit the app and replace its copy in Applications. Keep the same 
 
 ## Editions
 
-**Unlocked** is the current supported edition. A **Standard** edition with normal progression is under study; it is not yet available. It requires real reward, purchase and claim handling, plus separate saves. See the [edition study](docs/editions.md) for verified gaps and the proposed isolation model.
+**Unlocked** is the current supported edition. A **Standard** edition was evaluated and is not planned: normal progression requires a separate reward, purchase and claim backend. See the [edition decision](docs/editions.md) for the evidence and save-isolation requirements if it is ever reconsidered.
 
 ## Unlocks and scope
 
