@@ -1,4 +1,5 @@
 #offline-status {
+  box-sizing: border-box;
   position: fixed;
   z-index: 10000;
   inset-block-end: max(12px, env(safe-area-inset-bottom));

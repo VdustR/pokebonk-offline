@@ -11,10 +11,11 @@ status.append(message,retry,dismiss);
 document.body.append(status);
 const chinese=()=>/^(zh|zht)/i.test(localStorage.getItem('pokebonk.lang')??navigator.language);
 const text=(zh,en)=>chinese()?zh:en;
-let registration;
+let registration, hideTimer;
 window.__pokebonkOfflineState='preparing';
 function update(data) {
   if(!data.pokebonkOffline)return;
+  clearTimeout(hideTimer);
   window.__pokebonkOfflineState=data.state;
   retry.hidden=data.state!=='error';
   if(data.state==='preparing')message.textContent=text('正在準備離線遊戲','Preparing offline game')+(data.total?` ${data.completed}/${data.total}`:'…');
@@ -23,7 +24,7 @@ function update(data) {
     :text('離線資源已下載，正在完成設定…','Download complete. Finishing offline setup…');
   if(data.state==='ready') {
     message.textContent=text('離線遊戲已就緒，可從瀏覽器選單安裝。','Ready offline. Install from your browser menu.');
-    setTimeout(()=>{status.hidden=true;},10000);
+    hideTimer=setTimeout(()=>{status.hidden=true;},10000);
   }
   if(data.state==='error') {
     status.hidden=false;
