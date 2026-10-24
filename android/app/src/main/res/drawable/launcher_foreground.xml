@@ -1,3 +1,0 @@
-<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="21dp">
-    <bitmap android:src="@drawable/pokebonk_logo" android:gravity="fill" />
-</inset>

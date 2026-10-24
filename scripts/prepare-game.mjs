@@ -178,10 +178,16 @@ const patched = patchGame(main, config, await readFile('runtime/local-backend.js
 files.set(mainKey, Buffer.from(patched.main));
 files.set(configKey, Buffer.from(patched.config));
 const csp = "default-src 'self' blob: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; frame-src 'none'; object-src 'none'";
-files.set('index.html', Buffer.from(html.replace('</head>', `<meta http-equiv="Content-Security-Policy" content="${csp}"><script>if(!localStorage.getItem('pokebonk.lang'))localStorage.setItem('pokebonk.lang','zht');</script></head>`)));
+files.set('index.html', Buffer.from(html.replace('</head>', `<meta http-equiv="Content-Security-Policy" content="${csp}"><link rel="stylesheet" href="./pwa.css"><script>if(!localStorage.getItem('pokebonk.lang'))localStorage.setItem('pokebonk.lang','zht');</script></head>`).replace('</body>','<script type="module" src="./pwa-client.js"></script></body>')));
+files.set('pwa-client.js',await readFile('runtime/pwa-client.js'));
+files.set('pwa.css',await readFile('runtime/pwa.css'));
+files.set('manifest.webmanifest',Buffer.from(JSON.stringify({id:'./',name:'PokéBonk Offline',short_name:'PokéBonk',description:'PokéBonk with local unlocks and offline play.',lang:'zh-TW',start_url:'./?lang=zht',scope:'./',display:'fullscreen',orientation:'landscape',background_color:'#1a1630',theme_color:'#1a1630',icons:[{src:'icons/icon-192.png',sizes:'192x192',type:'image/png'},{src:'icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}]},null,2)));
 files.set('version.json', Buffer.from(JSON.stringify({build:buildId,version})));
 files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
 await rm(output,{recursive:true,force:true});
 for (const [key,data] of files) { const target=path.join(output,key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data); }
-await writeFile(path.join(output,'asset-manifest.json'),JSON.stringify({build:buildId,files:[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)})),missingCandidates:[...new Set(missing)].sort()},null,2));
+const entries=[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)}));
+const cacheVersion=sha(JSON.stringify(entries));
+await writeFile(path.join(output,'asset-manifest.json'),JSON.stringify({build:buildId,cacheVersion,files:entries,missingCandidates:[...new Set(missing)].sort()},null,2));
+await writeFile(path.join(output,'sw.js'),(await readFile('runtime/sw.js','utf8')).replace('__CACHE_VERSION__',cacheVersion));
 console.log(`Prepared ${files.size} files, ${(bytes/1024/1024).toFixed(1)} MiB at ${output}`);

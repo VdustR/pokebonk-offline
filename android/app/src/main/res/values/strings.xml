@@ -1,5 +1,0 @@
-<resources>
-    <string name="exit_dialog_title">Exit PokéBonk?</string>
-    <string name="exit_dialog_message">Your local progress stays on this device.</string>
-    <string name="exit_dialog_confirm">Exit</string>
-</resources>
