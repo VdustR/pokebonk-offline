@@ -41,6 +41,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/check-update.ts
+      - name: Install native desktop test window manager
+        if: steps.identity.outputs.changed == 'true'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox
       - name: Prepare and verify bundled game
         if: steps.identity.outputs.changed == 'true'
         env:
@@ -52,7 +55,10 @@ jobs:
           pnpm test
           pnpm prepare:game
           node scripts/verify-game.ts
+          bash e2e/with-linux-desktop.sh pnpm repro:window-lifecycle
+          bash e2e/with-linux-desktop.sh pnpm repro:fullscreen
           xvfb-run -a pnpm repro:pointer-lock
+          bash e2e/with-linux-desktop.sh node e2e/fullscreen-game.ts
           xvfb-run -a pnpm e2e:electron
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: steps.identity.outputs.changed == 'true'
@@ -99,11 +105,15 @@ jobs:
           pnpm install --frozen-lockfile
           node scripts/verify-game.ts
           pnpm package:electron build/game release ${{ matrix.platform }} ${{ matrix.arch }}
+      - name: Install Linux native window manager
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox
       - name: Test packaged Linux app
         if: matrix.platform == 'linux'
         run: |
           mkdir -p packaged
           tar -xzf release/*.tar.gz -C packaged
+          bash e2e/with-linux-desktop.sh node e2e/fullscreen-game.ts build/game 'packaged/Pokebonk Offline-linux-x64/Pokebonk Offline'
           xvfb-run -a pnpm e2e:electron build/game 'packaged/Pokebonk Offline-linux-x64/Pokebonk Offline'
       - name: Test packaged native macOS app
         if: matrix.platform == 'darwin'
@@ -111,6 +121,7 @@ jobs:
           mkdir -p packaged
           ditto -x -k release/*.zip packaged
           if [[ "$(node -p process.arch)" == '${{ matrix.arch }}' ]]; then
+            node e2e/fullscreen-game.ts build/game 'packaged/Pokebonk Offline-darwin-${{ matrix.arch }}/Pokebonk Offline.app/Contents/MacOS/Pokebonk Offline'
             pnpm e2e:electron build/game 'packaged/Pokebonk Offline-darwin-${{ matrix.arch }}/Pokebonk Offline.app/Contents/MacOS/Pokebonk Offline'
           fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

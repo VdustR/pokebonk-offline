@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, protocol, session } from "electron";
+import { app, BrowserWindow, Menu, dialog, protocol, session } from "electron";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -77,8 +77,8 @@ function resolveGamePath(requestUrl: string) {
 
 function configureOfflineSession() {
   const appSession = session.defaultSession;
-  // The upstream game owns lock/release timing. Grant only its main frame the
-  // native permission; other capabilities remain denied by default.
+  // The upstream game owns pointer-lock and fullscreen timing. Grant only its
+  // main frame these capabilities; other permissions remain denied by default.
   const isGameUrl = (value: string) => {
     try {
       const url = new URL(value);
@@ -89,10 +89,10 @@ function configureOfflineSession() {
     }
   };
   appSession.setPermissionCheckHandler((contents, permission, origin, details) =>
-    permission === "pointerLock" && details.isMainFrame
+    (permission === "pointerLock" || permission === "fullscreen") && details.isMainFrame
     && contents !== null && isGameUrl(contents.getURL()) && isGameUrl(origin));
   appSession.setPermissionRequestHandler((contents, permission, callback, details) => {
-    callback(permission === "pointerLock" && details.isMainFrame
+    callback((permission === "pointerLock" || permission === "fullscreen") && details.isMainFrame
       && isGameUrl(contents.getURL()) && isGameUrl(details.requestingUrl));
   });
   appSession.webRequest.onBeforeRequest(
@@ -160,6 +160,46 @@ function serveGameFile(request: Request, resolvedPath: string) {
   return response;
 }
 
+function toggleFullscreen(window: BrowserWindow) {
+  // Keep shell shortcuts on the same HTML API as the game's controls. A window
+  // put into native fullscreen by macOS can still be exited with this shortcut.
+  void window.webContents.executeJavaScript(`(async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return false;
+    }
+    if (${window.isFullScreen()}) return true;
+    await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+    return false;
+  })()`, true).then((exitNative: unknown) => {
+    if (exitNative === true && !window.isDestroyed()) window.setFullScreen(false);
+  }).catch(error => console.error("Failed to toggle fullscreen", error));
+}
+
+function configureApplicationMenu() {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
+    {
+      label: "File",
+      submenu: [
+        { role: "close" },
+        ...(process.platform === "darwin" ? [] : [{ role: "quit" as const }]),
+      ],
+    },
+    { role: "editMenu" },
+    {
+      label: "View",
+      submenu: [{
+        id: "fullscreen",
+        label: "Toggle Full Screen",
+        accelerator: process.platform === "darwin" ? "Control+Command+F" : "F11",
+        click: (_item, window) => { if (window instanceof BrowserWindow) toggleFullscreen(window); },
+      }],
+    },
+    { role: "windowMenu" },
+  ]));
+}
+
 function createWindow() {
   const window = new BrowserWindow({
     width: 1280,
@@ -188,10 +228,23 @@ function createWindow() {
       event.preventDefault();
     }
   });
+  window.webContents.on("will-prevent-unload", event => {
+    const choice = dialog.showMessageBoxSync(window, {
+      type: "question",
+      buttons: ["Keep Playing", "Close Game"],
+      defaultId: 0,
+      cancelId: 0,
+      title: "Close PokéBonk?",
+      message: "Close the current game?",
+      detail: "The current run will end without being completed. Previously saved progress and settings will be kept.",
+      noLink: true,
+    });
+    if (choice === 1) event.preventDefault();
+  });
   window.webContents.on("before-input-event", (event, input) => {
     if (input.type === "keyDown" && input.key === "F11") {
-      window.setFullScreen(!window.isFullScreen());
       event.preventDefault();
+      if (!input.isAutoRepeat) toggleFullscreen(window);
     }
   });
   window.once("ready-to-show", () => window.show());
@@ -224,7 +277,7 @@ void app.whenReady().then(() => {
   });
 
   configureOfflineSession();
-  Menu.setApplicationMenu(null);
+  configureApplicationMenu();
   createWindow();
 }).catch(error => {
   console.error(error);

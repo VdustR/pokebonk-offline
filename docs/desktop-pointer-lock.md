@@ -6,7 +6,7 @@ The game owns when to acquire and release the lock. Pausing with Escape, opening
 
 ## Permission boundary
 
-Both Electron permission handlers allow only `pointerLock`, requested by the main frame of `pokebonk://game`, while its WebContents is also on that origin. Child frames and other origins are denied, as are other capabilities. Runtime HTTP, HTTPS and WebSocket requests remain blocked; sandboxing, context isolation and disabled Node integration remain enabled.
+Both Electron permission handlers allow `pointerLock` and `fullscreen`, requested by the main frame of `pokebonk://game`, while its WebContents is also on that origin. Child frames and other origins are denied, as are other capabilities. Runtime HTTP, HTTPS and WebSocket requests remain blocked; sandboxing, context isolation and disabled Node integration remain enabled.
 
 This is a native permission repair. It deliberately leaves the downloaded game's input and modal state machines intact. Electron documents the [permission request and check handlers](https://www.electronjs.org/docs/latest/api/session#sessetpermissionrequesthandlerhandler), including `pointerLock`; the installed Electron 45.0.0 declarations supply the callback contracts used here.
 

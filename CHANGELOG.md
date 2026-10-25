@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.4
+
+### Patch Changes
+
+- Restore desktop fullscreen controls and shortcuts, and offer a native confirmation when closing an active run. Restore standard application menus for close, quit, minimize and text editing while retaining offline isolation.
+
 ## 0.0.3
 
 ### Patch Changes
