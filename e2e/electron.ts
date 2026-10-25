@@ -35,7 +35,9 @@ try {
   page.on('pageerror',e=>errors.push(e.message));
   page.on('response',r=>{if(r.status()>=400)missing.push({url:r.url(),status:r.status()});});
   page.on('request',r=>{if(/^(https?|wss?):/.test(r.url()))external.push(r.url());});
-  await checkGame(page,metadata,executablePath?'electron-packaged':'electron');
+  await app.evaluate(({app,BrowserWindow})=>{app.focus({steal:true});BrowserWindow.getAllWindows()[0]?.focus();});
+  await page.waitForFunction(()=>document.hasFocus());
+  await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true});
   assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   const gameRequests=[...external];
   assert.equal(await page.evaluate(()=>fetch('https://example.com/').then(()=>false,()=>true)),true,'Network must be blocked');

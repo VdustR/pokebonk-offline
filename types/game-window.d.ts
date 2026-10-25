@@ -1,5 +1,9 @@
 interface GameRun {
   time: number;
+  state: string;
+  camYaw: number;
+  resume(): void;
+  openMap(): void;
   startSpecies: number;
   biome: {id:string};
   mode: string;

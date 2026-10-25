@@ -77,8 +77,24 @@ function resolveGamePath(requestUrl: string) {
 
 function configureOfflineSession() {
   const appSession = session.defaultSession;
-  appSession.setPermissionCheckHandler(() => false);
-  appSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  // The upstream game owns lock/release timing. Grant only its main frame the
+  // native permission; other capabilities remain denied by default.
+  const isGameUrl = (value: string) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === `${APP_SCHEME}:` && url.host === APP_HOST
+        && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  };
+  appSession.setPermissionCheckHandler((contents, permission, origin, details) =>
+    permission === "pointerLock" && details.isMainFrame
+    && contents !== null && isGameUrl(contents.getURL()) && isGameUrl(origin));
+  appSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    callback(permission === "pointerLock" && details.isMainFrame
+      && isGameUrl(contents.getURL()) && isGameUrl(details.requestingUrl));
+  });
   appSession.webRequest.onBeforeRequest(
     { urls: ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"] },
     (_details, callback) => callback({ cancel: true }),
