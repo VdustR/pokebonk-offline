@@ -1,6 +1,16 @@
 # Catalog-driven asset collection
 
-`prepare-game.ts` must enumerate every member of the status and clan-reaction icon catalogs. Their images are required downloads, so an unavailable catalog image stops collection. `verify-game.ts` independently resolves the catalogs from the bundled modules, checks manifest membership and PNG signatures, and rejects an otherwise consistent bundle that omits a catalog member. Electron and Android runtime checks decode the catalog images through the native origin.
+`prepare-game.ts` must enumerate every member of the status, clan-reaction, gameplay-upgrade, held-item, and shop icon catalogs. Their images are required downloads, so an unavailable catalog image stops collection. `verify-game.ts` independently resolves the catalogs from the bundled modules, checks manifest membership and PNG signatures, and rejects an otherwise consistent bundle that omits a catalog member. Electron and Android runtime checks decode the catalog images through the native origin.
+
+## Gameplay item image omission
+
+On October 25, 2026, the installed 0.8.34 build (`mvlr7rzv`) repeatedly requested `assets/items/enigma-berry.png` during a run and received HTTP 404 through the Electron origin. The same upstream image returned HTTP 200 with a PNG signature. The upgrade catalog also referenced `sticky-barb`, `super-lure`, `poke-radar`, and `loaded-dice`, whose images were absent from the bundle. All five were available upstream.
+
+The collector previously enumerated item images only through `data/items.json`. The upgrade catalog contains additional items, and the renderer passes each upgrade's `icon` token, which can differ from its `key`. Its item helper uses the JSON icon override when present and otherwise builds `items/<token>.png`. Marking a key as required cannot collect an image when the key has no JSON record.
+
+`item-icons.ts` now resolves upgrade icon tokens and held-item/shop keys, applies the same JSON override or filename fallback, and makes the resulting paths required downloads. It validates catalog identity, duplicate keys, tokens, and image paths before collection. The payload verifier recomputes the paths from config and item data rather than trusting metadata; native tests decode every required image. Tests cover a new catalog entry, an icon/key alias, a JSON override, an absent JSON entry, missing/corrupt images under a consistent manifest, and malformed catalogs. No game image-error fallback is suppressed or changed.
+
+The retained working evidence lives in `evidence/image-failure-before.json` and `evidence/item-images-repro.json` in the repair workspace. The former records the real failed requests; the latter compares the actual catalog and payload inventory and checks upstream responses. These ignored files are local diagnostic evidence, not packaged resources.
 
 ## Reproduced omission
 
@@ -17,7 +27,7 @@ Hardcoding the five missing paths would repair one release but would miss later 
 Run the maintained regression checks with:
 
 ```sh
-node --test test/catalog-icons.test.ts test/status-icons.test.ts
+node --test test/catalog-icons.test.ts test/status-icons.test.ts test/item-icons.test.ts
 pnpm prepare:game
 node scripts/verify-game.ts
 pnpm e2e:electron
@@ -27,7 +37,7 @@ The tests cover renamed bindings, a new reaction, invalid catalogs, an unsupport
 
 ## Evidence limits
 
-This is coverage for two known dynamic icon families, not a general proof of all assets. Other producers include species, environment atlases, music, cosmetics, and externally supplied content. Hash verification proves the recorded inventory's bytes; it does not establish complete reachability. PNG signatures do not prove successful decoding, so runtime checks remain separate.
+This covers the resolved icon catalogs, not a general proof of all assets. Other producers include species, environment atlases, music, cosmetics, and externally supplied content. Hash verification proves the recorded inventory's bytes; it does not establish complete reachability. PNG signatures do not prove successful decoding, so runtime checks remain separate.
 
 The static audit found no external image or buffer URIs in the 86 bundled GLB models. That rules out secondary-file omissions within those models, not missing entire models or rendering failures. The 316 absent optional candidates in the original manifest include guessed filenames and unsupported categories; they are not 316 established defects.
 

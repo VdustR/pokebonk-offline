@@ -7,7 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {inspectIconCatalogs} from '../scripts/catalog-icons.ts';
 
-const config=`const reactions=['gg','love'];const marker='slot-move';export {reactions as reactionExport};`;
+const config=`const reactions=['gg','love'];const marker='slot-move';export {reactions as reactionExport};`
+ +`const upgrades=[{key:'vitamin',stat:'maxHp',per:1,icon:'enigma-berry'}];const held=[{key:'poke-ball',mods:[]}];const shop=[{key:'poke-ball',price:1}];`;
 const main="import {reactionExport as reactionList} from './config.js';"
  +"function icon(id){return `ui/icons/${id}.png`;}"
  +"const statuses=[{id:'poison'}];for(const status of statuses)icon('st-'+status.id);"
@@ -35,19 +36,23 @@ test('new concatenated icon families require explicit coverage',()=>{
 test('payload verification rejects a catalog omission despite a consistent manifest',async()=>{
   const root=await mkdtemp(path.join(os.tmpdir(),'pokebonk-icon-catalog-'));
   const png=Buffer.from([137,80,78,71,13,10,26,10]);
-  const metadata={upstreamBuild:'fixture',upstreamVersion:'1.0.0',offlineVersion:'0.0.1',sourceDigest:'a'.repeat(64),variant:'unlock-all',league:1,lab:1,items:1,achievements:1,medals:1,medalRank:1,statusIcons:['assets/ui/icons/st-poison.png'],reactionIcons:['assets/ui/icons/r-gg.png','assets/ui/icons/r-love.png'],builder:'fixture'};
+  const metadata={upstreamBuild:'fixture',upstreamVersion:'1.0.0',offlineVersion:'0.0.1',sourceDigest:'a'.repeat(64),variant:'unlock-all',league:1,lab:1,items:1,achievements:1,medals:1,medalRank:1,statusIcons:['assets/ui/icons/st-poison.png'],reactionIcons:['assets/ui/icons/r-gg.png','assets/ui/icons/r-love.png'],itemIcons:['assets/items/enigma-berry.png','assets/items/poke-ball.png'],builder:'fixture'};
   try {
-    const write=async(omit:boolean,invalid:boolean)=>{
+    const write=async(omit:boolean,invalid:boolean,item=false)=>{
       const entries=new Map<string,Buffer>([['main.js',Buffer.from(main)],['config.js',Buffer.from(config)],['offline-build.json',Buffer.from(JSON.stringify(metadata))],
-        ['assets/ui/icons/st-poison.png',png],['assets/ui/icons/r-gg.png',png]]);
-      if(!omit)entries.set('assets/ui/icons/r-love.png',invalid?Buffer.from('not a PNG'):png);
+        ['assets/ui/icons/st-poison.png',png],['assets/ui/icons/r-gg.png',png],['data/items.json',Buffer.from('{}')],['assets/items/poke-ball.png',png]]);
+      const target=item?'assets/items/enigma-berry.png':'assets/ui/icons/r-love.png';
+      entries.set(item?'assets/ui/icons/r-love.png':'assets/items/enigma-berry.png',png);
+      if(!omit)entries.set(target,invalid?Buffer.from('not a PNG'):png);
       for(const[name,bytes]of entries){await mkdir(path.dirname(path.join(root,name)),{recursive:true});await writeFile(path.join(root,name),bytes);}
       await writeFile(path.join(root,'asset-manifest.json'),JSON.stringify({files:[...entries].map(([name,bytes])=>({name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}))}));
     };
     const verify=(expectedBuild='fixture')=>execFileSync(process.execPath,['scripts/verify-game.ts',root],{encoding:'utf8',stdio:'pipe',env:{...process.env,EXPECTED_BUILD:expectedBuild}});
-    await write(false,false);assert.match(verify(),/Verified 6 payload hashes/);
+    await write(false,false);assert.match(verify(),/Verified 9 payload hashes/);
     assert.throws(()=>verify('another-build'),/Upstream changed during collection/);
     await write(true,false);assert.throws(verify,/Missing catalog icon: assets\/ui\/icons\/r-love.png/);
     await write(false,true);assert.throws(verify,/Invalid catalog PNG: assets\/ui\/icons\/r-love.png/);
+    await write(true,false,true);assert.throws(verify,/Missing catalog icon: assets\/items\/enigma-berry.png/);
+    await write(false,true,true);assert.throws(verify,/Invalid catalog PNG: assets\/items\/enigma-berry.png/);
   } finally {await rm(root,{recursive:true,force:true});}
 });
