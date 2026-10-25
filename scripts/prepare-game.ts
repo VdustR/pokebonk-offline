@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { ast, nodes, nodesOf, literal, maybeName, nameOf, requireNode } from './source.ts';
 import { patchGame, inspectGame } from './patch-game.ts';
 import { inspectIconCatalogs } from './catalog-icons.ts';
+import {inspectItemIcons} from './item-icons.ts';
 import {versionForBuild} from './upstream-version.ts';
 import {offlineVersion,sourceDigest} from './release-source.ts';
 
@@ -131,11 +132,13 @@ for (const id of species) {
   const sprite = sprites[id];
   if (isRecord(sprite) && sprite['fallback']) add('assets/' + textValue(sprite['fallback']));
 }
-const usedItems = new Set(info.items.map(item => item.key));
-for (const value of Object.values(info.values)) if (objectArray(value)) for (const item of value) {
-  if (item['key'] && (item['mods'] || item['stat'])) usedItems.add(textValue(item['key']));
+const itemIcons=inspectItemIcons(config,itemData);
+const requiredItems=new Set(itemIcons);
+for(const item of Object.values(itemData))if(isRecord(item)&&item['icon']) {
+  const key='assets/'+textValue(item['icon']);
+  add(key,!requiredItems.has(key));
 }
-for (const [key,item] of Object.entries(itemData)) if (isRecord(item) && item['icon']) add('assets/' + textValue(item['icon']), !usedItems.has(key));
+for(const key of itemIcons)add(key);
 for (const region of Object.keys(info.versions).filter(key => key.startsWith('env/'))) {
   for (const name of region === 'env/common' ? ['atlas.json','atlas.png'] : ['atlas.json','atlas.png','ground.png','cliff.png','path.png']) add(`assets/${region}/${name}`);
 }
@@ -205,7 +208,7 @@ files.delete('manifest.webmanifest');
 files.set('index.html',Buffer.from(nativeHtml));
 for(const [key,data] of files)if(key.endsWith('.html'))files.set(key,Buffer.from(data.toString().replace(/((?:src|href)=["'])\/(?!\/)/g,'$1./').replace(/href=(["'])\.\/legal\1/g,'href=$1./legal.html$1')));
 files.set('version.json', Buffer.from(JSON.stringify({build:buildId,version})));
-files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,offlineVersion:await offlineVersion(),sourceDigest:await sourceDigest(),variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,statusIcons,reactionIcons,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
+files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,offlineVersion:await offlineVersion(),sourceDigest:await sourceDigest(),variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,statusIcons,reactionIcons,itemIcons,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
 await rm(output,{recursive:true,force:true});
 for (const [key,data] of files) { const target=path.join(output,key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data); }
 const entries=[...files].map(([name,data])=>({name,bytes:data.length,sha256:sha(data)})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);

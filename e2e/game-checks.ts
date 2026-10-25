@@ -41,7 +41,8 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   assert.equal(await page.evaluate(()=>Boolean(navigator.serviceWorker?.controller)),false);
   assert.ok(metadata.statusIcons.length>0);
   assert.ok(metadata.reactionIcons.length>0);
-  await page.evaluate(async paths=>{await Promise.all(paths.map(async path=>{const image=new Image();image.src='/'+path;await image.decode();if(!image.naturalWidth)throw new Error('Undecoded catalog icon: '+path);}));},[...metadata.statusIcons,...metadata.reactionIcons]);
+  assert.ok(metadata.itemIcons.length>0);
+  await page.evaluate(async paths=>{await Promise.all(paths.map(async path=>{const image=new Image();image.src='/'+path;await image.decode();if(!image.naturalWidth)throw new Error('Undecoded catalog icon: '+path);}));},[...metadata.statusIcons,...metadata.reactionIcons,...metadata.itemIcons]);
   await page.getByRole('button',{name:/^成就 /}).click();
   const general=await page.locator('.q-card.done').count();
   await page.getByRole('button',{name:'外觀',exact:true}).click();
