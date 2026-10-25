@@ -5,6 +5,8 @@ set -euo pipefail
 if [[ -z "${DISPLAY:-}" ]]; then
   exec xvfb-run -a bash "$0" "$@"
 fi
+command -v openbox >/dev/null
+command -v xprop >/dev/null
 openbox --sm-disable >/dev/null 2>&1 &
 windowManagerPid=$!
 trap 'kill "$windowManagerPid" 2>/dev/null || true; wait "$windowManagerPid" 2>/dev/null || true' EXIT

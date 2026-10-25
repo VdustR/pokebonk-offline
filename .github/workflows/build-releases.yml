@@ -43,7 +43,7 @@ jobs:
         run: node scripts/check-update.ts
       - name: Install native desktop test window manager
         if: steps.identity.outputs.changed == 'true'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox x11-utils
       - name: Prepare and verify bundled game
         if: steps.identity.outputs.changed == 'true'
         env:
@@ -107,7 +107,7 @@ jobs:
           pnpm package:electron build/game release ${{ matrix.platform }} ${{ matrix.arch }}
       - name: Install Linux native window manager
         if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox x11-utils
       - name: Test packaged Linux app
         if: matrix.platform == 'linux'
         run: |
