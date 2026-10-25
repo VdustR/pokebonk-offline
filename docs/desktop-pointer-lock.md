@@ -27,12 +27,18 @@ Observed 2026-10-25 (Asia/Taipei), macOS Apple Silicon, Node 26.12.1, Electron 4
 - Original-policy control after the fix: request denied again.
 - Same-origin child frame, foreign origin, geolocation and notification checks remain denied.
 
-The collected PokéBonk 0.8.47 build `mvnpa0xv` also passed the forest lock/camera/Escape/resume/map assertions and all five gameplay scenarios locally. An earlier unfocused or focus-contended run did not acquire a lock; that observation alone does not establish the exact focus race. The automation explicitly establishes document focus before testing.
+The collected PokéBonk 0.8.47 build `mvnpa0xv` also passed the forest lock/camera/Escape/resume/map assertions and all five gameplay scenarios locally. An earlier run did not acquire a lock; focus contention was not ruled out, and the observation alone does not establish its cause. The automation explicitly establishes document focus before testing.
 
 This establishes that the deny-all permission policy prevents native pointer lock in this environment. It does not establish every upstream gameplay transition or physical mouse feel. Recheck this premise when Electron/Chromium, the permission handlers, custom origin, platform or focus/gesture sequence changes, or when contradictory evidence appears.
 
 ## Integration acceptance
 
-`pnpm e2e:electron` tests the real collected game with temporary saves. The forest run asserts canvas pointer lock, a camera yaw change after mouse movement, release and pause on Escape, reacquisition on resume, release for the map, and reacquisition after closing it. The same checks run against packaged Linux and native macOS apps in CI. Existing gameplay, persistence, image decoding and network-isolation checks remain required.
+`pnpm e2e:electron` tests the real collected game with temporary saves. The forest run uses trusted keyboard input to acquire capture and asserts canvas pointer lock, a camera yaw change after mouse movement, release and pause on Escape, reacquisition on resume, release for the map, and reacquisition after closing it. The same checks run against packaged Linux and native macOS apps in CI. Existing gameplay, persistence, image decoding and network-isolation checks remain required.
 
 For a local installed app, verify its packaged provenance and signature, and run the same packaged Electron checks. For physical acceptance, enter keyboard/mouse gameplay, confirm that moving the mouse continuously rotates the view without reaching a screen edge, then verify Escape, map and resume. DOM lock/yaw assertions establish native lock state and game response; they do not substitute for observing physical cursor visibility or subjective input feel. Windows and Intel Mac physical acceptance remain separate from source or Apple Silicon runtime evidence.
+
+### Automation hit-testing observation
+
+The first macOS arm64 packaged CI run reached active forest gameplay but timed out in `locator('canvas').click()`: Playwright reported that the HTML root intercepted pointer events. The failure artifact showed gameplay continuing into a level-up modal during retries. The same head passed Linux packaged input/gameplay checks. See the [initial macOS CI run](https://github.com/VdustR/pokebonk-offline/actions/runs/40193048981).
+
+Acquisition tests use a trusted `w` key press, which upstream already handles for keyboard/mouse capture. A local tiny body-lock probe accepted a second element click, so the observation does not establish a generic Electron hit-testing defect. The keyboard path avoids making an element hit-test a precondition while native pointer lock may already be active, and still asserts real canvas lock and camera response. The production permission change remains unchanged.

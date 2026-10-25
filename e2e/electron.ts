@@ -53,4 +53,12 @@ try {
     }
   }
   throw error;
-} finally {if(app)await app.close();await rm(userData,{recursive:true,force:true});}
+} finally {
+  if(app) {
+    // Test profiles are disposable. Bypass gameplay beforeunload dialogs so a
+    // failed assertion remains visible instead of a teardown dialog race.
+    await app.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.destroy();});
+    await app.close();
+  }
+  await rm(userData,{recursive:true,force:true});
+}

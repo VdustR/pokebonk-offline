@@ -65,8 +65,9 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
     assert.equal(await page.evaluate(config=>window.__pokebonkLocalApp.startRun({...config,boosts:[]}),config),true);
     await page.waitForFunction(()=>(window.__pokebonkLocalApp.run?.time ?? 0)>3,null,{timeout:90000});
     if(pointerLock&&config.biome==='forest') {
-      const canvas=page.locator('canvas').first();
-      await canvas.click();
+      // Keyboard input also acquires lock when the game has armed it. Avoid
+      // locator hit-testing while native capture has already hidden the cursor.
+      await page.keyboard.press('w');
       await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS');
       assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.run?.state),'play');
       const yaw=await page.evaluate(()=>window.__pokebonkLocalApp.run?.camYaw);
@@ -76,12 +77,12 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
       await page.keyboard.press('Escape');
       await page.waitForFunction(()=>document.pointerLockElement===null&&window.__pokebonkLocalApp.run?.state==='paused');
       await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
-      await canvas.click();
+      await page.keyboard.press('w');
       await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS'&&window.__pokebonkLocalApp.run?.state==='play');
       await page.evaluate(()=>window.__pokebonkLocalApp.run?.openMap());
       await page.waitForFunction(()=>document.pointerLockElement===null&&window.__pokebonkLocalApp.run?.state==='paused');
       await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
-      await canvas.click();
+      await page.keyboard.press('w');
       await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS');
       console.log(label,'pointer lock, camera movement, Escape, resume and map release passed');
     }
@@ -91,6 +92,7 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
     }
     runs.push(await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;if(!r)throw new Error('Expected active run');return {species:r.startSpecies,biome:r.biome.id,time:r.time,mode:r.mode};}));
     await page.evaluate(async()=>{const a=window.__pokebonkLocalApp;if(!a.run)throw new Error('Expected active run');a.run.endHow='quit';await a.run.finish(false,true);a.toMenu();});
+    if(pointerLock)await page.waitForFunction(()=>document.pointerLockElement===null);
     console.log(label,'gameplay passed:',config.biome);
   }
   await page.waitForFunction(()=>document.getAnimations().filter(a=>Number.isFinite(a.effect?.getTiming().iterations)).every(a=>a.playState!=='running'),null,{timeout:10000});
