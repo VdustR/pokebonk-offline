@@ -6,6 +6,8 @@
     "test": "pnpm build && node --test test/*.test.ts",
     "prepare:game": "pnpm build && node scripts/prepare-game.ts",
     "preview": "node scripts/serve.ts",
+    "repro:window-lifecycle": "pnpm build && node e2e/window-lifecycle.ts",
+    "repro:fullscreen": "pnpm build && node e2e/fullscreen.ts",
     "repro:pointer-lock": "pnpm build && node e2e/pointer-lock.ts",
     "e2e:electron": "pnpm build && node e2e/electron.ts",
     "package:electron": "pnpm build && node scripts/package-electron.ts",
@@ -33,5 +35,5 @@
   "engines": {
     "node": "^24.12.0 || >=26"
   },
-  "version": "0.0.3"
+  "version": "0.0.4"
 }

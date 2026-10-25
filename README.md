@@ -70,7 +70,7 @@ Maintained tools, tests, Electron code, and the browser backend use TypeScript 7
 
 Catalog-driven status and reaction images are required assets. The payload verifier checks catalog completeness as well as file hashes; native tests also decode these images. See [asset collection and evidence limits](docs/asset-collection.md).
 
-A loopback static preview is available with `pnpm preview` for debugging. It is not an installable PWA. Desktop keyboard/mouse capture follows the [pointer-lock specification and reproduction](docs/desktop-pointer-lock.md). Native runtime tests use a temporary Electron user-data directory; a packaged executable can be supplied as the second argument to `e2e/electron.ts`.
+A loopback static preview is available with `pnpm preview` for debugging. It is not an installable PWA. Desktop window closing, menus and lifecycle follow the [desktop integration audit](docs/desktop-integration.md). Desktop fullscreen controls follow the [fullscreen permission repair and reproduction](docs/desktop-fullscreen.md). Desktop keyboard/mouse capture follows the [pointer-lock specification and reproduction](docs/desktop-pointer-lock.md). Native runtime tests use a temporary Electron user-data directory; a packaged executable can be supplied as the second argument to `e2e/electron.ts`.
 
 To test an installed debug APK on a connected emulator or device:
 
