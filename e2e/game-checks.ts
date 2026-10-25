@@ -12,7 +12,7 @@ async function dismissMenuNotices(page: Page) {
   }
 }
 
-export async function checkGame(page: Page,metadata: BuildMetadata,label: string,{gameplay=true}={}) {
+export async function checkGame(page: Page,metadata: BuildMetadata,label: string,{gameplay=true,pointerLock=false}={}) {
   await page.addInitScript(()=>{
     const key='pokebonk.local.profile.v1';
     const value: unknown=JSON.parse(localStorage.getItem(key)||'{}');
@@ -64,15 +64,38 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   ]) {
     assert.equal(await page.evaluate(config=>window.__pokebonkLocalApp.startRun({...config,boosts:[]}),config),true);
     await page.waitForFunction(()=>(window.__pokebonkLocalApp.run?.time ?? 0)>3,null,{timeout:90000});
+    if(pointerLock&&config.biome==='forest') {
+      // Keyboard input also acquires lock when the game has armed it. Avoid
+      // locator hit-testing while native capture has already hidden the cursor.
+      await page.keyboard.press('w');
+      await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS');
+      assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.run?.state),'play');
+      const yaw=await page.evaluate(()=>window.__pokebonkLocalApp.run?.camYaw);
+      await page.mouse.move(640,360);
+      await page.mouse.move(680,370,{steps:8});
+      await page.waitForFunction(yaw=>window.__pokebonkLocalApp.run?.camYaw!==yaw,yaw);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(()=>document.pointerLockElement===null&&window.__pokebonkLocalApp.run?.state==='paused');
+      await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
+      await page.keyboard.press('w');
+      await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS'&&window.__pokebonkLocalApp.run?.state==='play');
+      await page.evaluate(()=>window.__pokebonkLocalApp.run?.openMap());
+      await page.waitForFunction(()=>document.pointerLockElement===null&&window.__pokebonkLocalApp.run?.state==='paused');
+      await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
+      await page.keyboard.press('w');
+      await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS');
+      console.log(label,'pointer lock, camera movement, Escape, resume and map release passed');
+    }
     if(config.biome==='glacier') {
       await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;if(!r)throw new Error('Expected active run');r.boss.spawn(91,r.player.pos.x+8,r.player.pos.z,false);const i=r.boss.bossIndex;for(const key of ['poison','sleep','para'] as const)r.enemies[key][i]=20;r.enemies.poisonStacks[i]=3;});
       await page.waitForFunction(()=>{const images=[...document.querySelectorAll<HTMLImageElement>('.bossbar .bb-sti img')];return images.length>=3&&images.every(image=>image.complete&&image.naturalWidth>0);},null,{timeout:15000});
     }
     runs.push(await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;if(!r)throw new Error('Expected active run');return {species:r.startSpecies,biome:r.biome.id,time:r.time,mode:r.mode};}));
     await page.evaluate(async()=>{const a=window.__pokebonkLocalApp;if(!a.run)throw new Error('Expected active run');a.run.endHow='quit';await a.run.finish(false,true);a.toMenu();});
+    if(pointerLock)await page.waitForFunction(()=>document.pointerLockElement===null);
     console.log(label,'gameplay passed:',config.biome);
   }
   await page.waitForFunction(()=>document.getAnimations().filter(a=>Number.isFinite(a.effect?.getTiming().iterations)).every(a=>a.playState!=='running'),null,{timeout:10000});
   await page.screenshot({path:`evidence/${label}.png`});
-  await writeFile(`evidence/${label}.json`,JSON.stringify({metadata,runs,persistence:true,achievements:metadata.achievements,medals:metadata.medals,tasksClaimed:true},null,2));
+  await writeFile(`evidence/${label}.json`,JSON.stringify({metadata,runs,persistence:true,achievements:metadata.achievements,medals:metadata.medals,tasksClaimed:true,pointerLock},null,2));
 }

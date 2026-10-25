@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.3
+
+### Patch Changes
+
+- Restore desktop keyboard/mouse camera control by allowing pointer lock only for the bundled game's main frame, while preserving other permission denials.
+
 ## 0.0.2
 
 ### Patch Changes
