@@ -1,11 +1,5 @@
 # pokebonk-offline-builder
 
-## 0.0.2
-
-### Patch Changes
-
-- License the original offline builder code under MIT while preserving upstream game and third-party licenses, and clarify the README.
-
 ## 0.0.1
 
 ### Patch Changes

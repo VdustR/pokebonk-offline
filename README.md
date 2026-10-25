@@ -1,6 +1,6 @@
 # PokéBonk Offline
 
-Unofficial, fully bundled [PokéBonk](https://pokebonk.com/) unlock-all apps for Electron desktop and Android. All game resources ship inside each package, saves stay local, and the game runs without an account or internet connection.
+Unofficial, fully bundled [PokéBonk](https://pokebonk.com/) unlock-all apps for Electron desktop and Android. All game resources ship inside each package, saves stay local, and the game runs without an account or internet connection. There is no PWA, service worker, or Pages deployment.
 
 ## Download and play
 
@@ -35,9 +35,11 @@ A warning that the app **will damage your computer**, was moved to Trash as malw
 
 For an update, quit the app and replace its copy in Applications. Keep the same app name and user-data directory to retain local saves; a new downloaded build may require approval again.
 
-## Unlocks and limitations
+## Editions
 
-**Unlocked** is the supported edition. Standard progression depends on an online reward, purchase, and claim backend. See the [edition decision](docs/editions.md) for details.
+**Unlocked** is the current supported edition. A **Standard** edition was evaluated and is not planned: normal progression requires a separate reward, purchase and claim backend. See the [edition decision](docs/editions.md) for the evidence and save-isolation requirements if it is ever reconsidered.
+
+## Unlocks and scope
 
 The current catalogs supply every League member, maximum Lab upgrades, every shop item, character looks and cosmetics, all achievements with their title/mastery-look rewards, one billion Stardust, and 999 of each preparation item. Supported maps have every difficulty and champion medal. Daily and weekly commissions are completed and claimed when loading or saving, including after a period changes.
 
@@ -89,10 +91,8 @@ Electron serves only the bundled custom origin with Node integration disabled, c
 
 Android signing passwords remain in GitHub Actions secrets. `android/signing-certificate.sha256` pins the public certificate fingerprint so a different signing key fails publication. Every new-format Release contains four desktop archives, one signed APK, checksums, and `release-info.json` with upstream/offline versions, source commit, source digest, and edition. An incomplete draft can be resumed; it is never treated as a completed update.
 
-## License and credits
+## Attribution
 
-Original code maintained in this repository, including the offline builder, local backend, and native shells, is available under the [MIT License](LICENSE).
-
-PokéBonk game code and assets are fetched at build time and are not tracked in Git. They retain their upstream licenses, copyright notices, and other rights; this project's MIT License does not apply to them. Third-party dependencies and vendored tools, including the Gradle wrapper, retain their own licenses and notices.
+Builder code uses the included AGPL-3.0 license. PokéBonk's game code and assets are fetched at build time, retain their original rights, and are not covered by the builder license or tracked in Git.
 
 Credit goes to Charcher and the original contributors. Pokémon names and assets belong to their respective owners; the game's credits and legal page remain included. This is an unofficial, noncommercial personal build with no affiliation or endorsement.
