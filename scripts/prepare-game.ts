@@ -6,6 +6,7 @@ import { ast, nodes, nodesOf, literal, maybeName, nameOf, requireNode } from './
 import { patchGame, inspectGame } from './patch-game.ts';
 import { inspectIconCatalogs } from './catalog-icons.ts';
 import {inspectItemIcons} from './item-icons.ts';
+import {inspectMutationAssets} from './mutation-assets.ts';
 import {versionForBuild} from './upstream-version.ts';
 import {offlineVersion,sourceDigest} from './release-source.ts';
 
@@ -139,6 +140,7 @@ for(const item of Object.values(itemData))if(isRecord(item)&&item['icon']) {
   add(key,!requiredItems.has(key));
 }
 for(const key of itemIcons)add(key);
+for(const key of inspectMutationAssets(config))add(key);
 for (const region of Object.keys(info.versions).filter(key => key.startsWith('env/'))) {
   for (const name of region === 'env/common' ? ['atlas.json','atlas.png'] : ['atlas.json','atlas.png','ground.png','cliff.png','path.png']) add(`assets/${region}/${name}`);
 }

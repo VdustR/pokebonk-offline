@@ -40,6 +40,28 @@ test('semantic patches survive renamed upstream identifiers',()=>{
   assert.match(result.config,/p\.localSandbox&&p\.league\.includes\(m\)/);
   assert.match(result.config,/document\.baseURI/);
 });
+test('registry discovery supports constructor helpers and formatted native fields',()=>{
+  const original='pokemon=[];movesByKey=new Map;';
+  for(const fields of [
+    'pokemon = []; movesByKey = new Map();',
+    'constructor(){renamed(this,`pokemon`,[]),renamed(this,`movesByKey`,new Map)}',
+  ]) {
+    const result=patchGame(main.replace(original,fields),config,'const dex=__REGISTRY__;');
+    assert.match(result.main,/const dex=registrySymbol;/);
+  }
+});
+test('registry discovery rejects missing, misleading and ambiguous initializations',()=>{
+  const original='pokemon=[];movesByKey=new Map;';
+  for(const fields of [
+    'pokemon=[];unrelated=new Map;',
+    'static pokemon=[];movesByKey=new Map;',
+    'pokemon=[];movesByKey="movesByKey";',
+    'constructor(){helper(other,`pokemon`,[]),helper(other,`movesByKey`,new Map)}',
+    'constructor(){helper(this,`pokemon`,{}),helper(this,`movesByKey`,new Map)}',
+    'method(){helper(this,`pokemon`,[]),helper(this,`movesByKey`,new Map)}',
+  ])assert.throws(()=>patchGame(main.replace(original,fields),config,''),/Pokédex registry/);
+  assert.throws(()=>patchGame(main+'const duplicate=new class{pokemon=[];movesByKey=new Map;};',config,''),/Pokédex registry: expected one match, got 2/);
+});
 test('missing wardrobe cases reject the complete patch',()=>{
   assert.throws(()=>patchGame(main,config.replace("case 'm2':",''),''),/wardrobe eligibility/);
 });

@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.5
+
+### Patch Changes
+
+- Recognize upstream Pokédex fields initialized by constructor helpers, bundle the complete daily mutation image catalog, and wait for fullscreen settings updates in native integration tests.
+
 ## 0.0.4
 
 ### Patch Changes
