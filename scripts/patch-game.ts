@@ -1,5 +1,6 @@
 import { ast, nodesOf, one, literal, edits, configContext, nameOf, maybeName, requireNode } from './source.ts';
 import {objectArray, record, text, finite, stringMap, isRecord} from '../types/data.ts';
+import type {AnyNode} from 'acorn';
 
 export function inspectGame(main: string, config: string) {
   const tree = ast(main);
@@ -28,9 +29,20 @@ export function inspectGame(main: string, config: string) {
     const returns = nodesOf(n.body,'ReturnStatement', x => x.argument?.type === 'ObjectExpression');
     return returns.some(r => requireNode(r.argument,'ObjectExpression').properties.some(p => p.type==='Property'&&maybeName(p.key)==='stardust') && ['lab','league','lastSpecies','settings'].every(key=>requireNode(r.argument,'ObjectExpression').properties.some(p=>p.type==='Property'&&maybeName(p.key)===key)));
   }), 'profile factory').id);
-  const registry = nameOf(one(nodesOf(tree,'VariableDeclarator', n => n.init?.type === 'NewExpression'
-    && n.init.callee.type === 'ClassExpression' && main.slice(n.start, n.end).includes('pokemon=[]')
-    && main.slice(n.start, n.end).includes('movesByKey')), 'Pokédex registry').id);
+  const registry = nameOf(one(nodesOf(tree,'VariableDeclarator', n => {
+    if(n.init?.type!=='NewExpression'||n.init.callee.type!=='ClassExpression')return false;
+    const members=n.init.callee.body.body;
+    const initialized=(field:string,valid:(value:AnyNode|null|undefined)=>boolean)=>members.some(member=>{
+      if(member.type==='PropertyDefinition')return !member.static&&!member.computed&&maybeName(member.key)===field&&valid(member.value);
+      if(member.type!=='MethodDefinition'||member.kind!=='constructor')return false;
+      // Upstream also lowers class fields to helper(this, key, value) calls.
+      return nodesOf(member.value.body,'CallExpression',call=>call.callee.type==='Identifier'
+        &&call.arguments.length===3&&call.arguments[0]?.type==='ThisExpression'
+        &&literal(call.arguments[1])===field&&valid(call.arguments[2])).length>0;
+    });
+    return initialized('pokemon',value=>value?.type==='ArrayExpression'&&value.elements.length===0)
+      &&initialized('movesByKey',value=>value?.type==='NewExpression'&&maybeName(value.callee)==='Map'&&value.arguments.length===0);
+  }), 'Pokédex registry').id);
   const backend = one(functions.filter(n => main.slice(n.start, n.end).includes('https://api.pokebonk.com')), 'backend factory');
   const seasonMethod = one(nodesOf(tree,'MethodDefinition', n => maybeName(n.key) === 'season' && main.slice(n.start, n.end).includes('this.info')), 'season method');
   const seasonCall = nameOf(one(nodesOf(seasonMethod,'CallExpression', n => n.callee.type === 'Identifier'), 'season calculation').callee);

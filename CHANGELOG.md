@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.5
+
+### Patch Changes
+
+- Recognize upstream Pokédex fields initialized by constructor helpers so scheduled offline builds can continue after the upstream class-field transformation.
+
 ## 0.0.4
 
 ### Patch Changes
