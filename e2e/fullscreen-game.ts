@@ -55,7 +55,8 @@ try {
   await page.screenshot({path:'evidence/fullscreen-settings.png'});
   await row.click();
   await page.waitForFunction(()=>!document.fullscreenElement);
-  assert.equal(await row.locator('.switch').evaluate(element=>element.classList.contains('on')),false);
+  // The DOM fullscreen state changes before the game's event handler updates its switch.
+  await row.locator('.switch:not(.on)').waitFor({timeout:5000});
   await app.evaluate(async({BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];if(window?.isFullScreen())await new Promise<void>((resolve,reject)=>{window.once('leave-full-screen',()=>resolve());setTimeout(()=>reject(new Error('Settings exit transition timed out')),5000);});});
   await page.keyboard.press('Escape');
   await page.evaluate(()=>window.__pokebonkLocalApp.startRun({species:4,biome:'forest',tier:0,boosts:[]}));

@@ -17,3 +17,9 @@ Download the application module linked above and its same-build `defineProperty-
 The original matcher failed, the repaired matcher resolved the registry and the other patch bindings, and temporarily restoring the original matcher restored the same failure. `test/semantic.test.ts` retains reduced cases for both supported forms, renamed bindings, and nearby rejection cases. The full `prepare:game`, payload verifier, and native CI remain necessary to establish that the downloaded game can be patched, packaged, and played offline.
 
 Repeat the direct inspection when upstream changes the registry initialization or module layout. These observations establish compatibility with the inspected build; they do not guarantee compatibility with future upstream releases.
+
+## Fullscreen integration timing
+
+Once registry discovery succeeded, PR CI reached the native fullscreen integration check and exposed an independent assertion race. `e2e/fullscreen-game.ts` observed `document.fullscreenElement === null` and immediately inspected the settings switch, before the game's `fullscreenchange` handler had updated its class. The [Fullscreen event documentation](https://developer.mozilla.org/en-US/docs/Web/API/Document/fullscreenchange_event) describes the fullscreen state as already changed when that handler runs.
+
+The integration test now separately waits up to five seconds for the visible switch to turn off. A permanently incorrect switch still fails, and the separate document and native window checks remain in place. No fixed sleep or game behavior change is needed.
