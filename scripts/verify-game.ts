@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import {inspectIconCatalogs} from './catalog-icons.ts';
 import {inspectItemIcons} from './item-icons.ts';
+import {inspectMutationAssets} from './mutation-assets.ts';
 const root=path.resolve(process.argv[2]??'build/game');
 const manifest=parseManifest(JSON.parse(await readFile(path.join(root,'asset-manifest.json'),'utf8')));
 for(const entry of manifest.files){
@@ -19,6 +20,12 @@ if(mains.length!==1||configs.length!==1||!mains[0]||!configs[0])throw new Error(
 const {statusIcons,reactionIcons}=inspectIconCatalogs(mains[0].source,configs[0].source);
 const itemIcons=inspectItemIcons(configs[0].source,JSON.parse(await readFile(path.join(root,'data/items.json'),'utf8')));
 const names=new Set(manifest.files.map(entry=>entry.name));
+for(const name of inspectMutationAssets(configs[0].source)) {
+ if(!names.has(name))throw new Error(`Missing mutation asset: ${name}`);
+ const bytes=await readFile(path.join(root,name));
+ const signature=name.endsWith('.png')?Buffer.from([137,80,78,71,13,10,26,10]):Buffer.from([255,216,255]);
+ if(!bytes.subarray(0,signature.length).equals(signature))throw new Error(`Invalid mutation image: ${name}`);
+}
 if(JSON.stringify(meta.itemIcons)!==JSON.stringify(itemIcons))throw new Error('Item icon metadata does not match catalogs');
 for(const name of [...statusIcons,...reactionIcons,...itemIcons]) {
  if(!names.has(name))throw new Error(`Missing catalog icon: ${name}`);

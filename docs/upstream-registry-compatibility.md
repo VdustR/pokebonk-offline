@@ -23,3 +23,11 @@ Repeat the direct inspection when upstream changes the registry initialization o
 Once registry discovery succeeded, PR CI reached the native fullscreen integration check and exposed an independent assertion race. `e2e/fullscreen-game.ts` observed `document.fullscreenElement === null` and immediately inspected the settings switch, before the game's `fullscreenchange` handler had updated its class. The [Fullscreen event documentation](https://developer.mozilla.org/en-US/docs/Web/API/Document/fullscreenchange_event) describes the fullscreen state as already changed when that handler runs.
 
 The integration test now separately waits up to five seconds for the visible switch to turn off. A permanently incorrect switch still fails, and the separate document and native window checks remain in place. No fixed sleep or game behavior change is needed.
+
+## Mutation catalog assets
+
+The next CI run completed five-map gameplay but found missing `mut-glass` icon and banner requests. Those paths are assembled at runtime from the mutation catalog, so collecting literal asset strings does not cover them. The inspected build has four mutation definitions, each providing an icon token and frame/banner prizes. Its renderers derive reward image names as `mut-<id>`.
+
+`scripts/mutation-assets.ts` resolves the entire catalog, including mutations that are not selected today. Collection treats its icons, frames, and banners as required assets. The independent payload verifier recomputes the same requirements from the bundled configuration and checks PNG/JPEG signatures; a self-consistent manifest cannot hide an omitted mutation image. Missing or ambiguous catalogs, duplicate identifiers, unsafe paths, and invalid prize data stop the build.
+
+The actual `mut-glass` icon, frame, and banner were fetched from the same upstream origin and identified as PNG, PNG, and JPEG respectively. Reduced regression cases cover a future catalog entry with a different icon token and a missing/corrupt banner in an otherwise valid manifest. The omission check failed before the verifier change.

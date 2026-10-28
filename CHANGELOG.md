@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Recognize upstream Pokédex fields initialized by constructor helpers so scheduled offline builds can continue after the upstream class-field transformation.
+- Recognize upstream Pokédex fields initialized by constructor helpers, bundle the complete daily mutation image catalog, and wait for fullscreen settings updates in native integration tests.
 
 ## 0.0.4
 
