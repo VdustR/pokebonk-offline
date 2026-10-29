@@ -5,7 +5,7 @@ import path from 'node:path';
 import {inspectIconCatalogs} from './catalog-icons.ts';
 import {inspectItemIcons} from './item-icons.ts';
 import {inspectMutationAssets} from './mutation-assets.ts';
-import {inspectPreloadedSprites} from './sprite-assets.ts';
+import {inspectAnimatedSprites} from './sprite-assets.ts';
 const root=path.resolve(process.argv[2]??'build/game');
 const manifest=parseManifest(JSON.parse(await readFile(path.join(root,'asset-manifest.json'),'utf8')));
 for(const entry of manifest.files){
@@ -20,7 +20,7 @@ const configs=modules.filter(module=>!mains.includes(module)&&module.source.incl
 if(mains.length!==1||configs.length!==1||!mains[0]||!configs[0])throw new Error('Unsupported game modules');
 const {statusIcons,reactionIcons}=inspectIconCatalogs(mains[0].source,configs[0].source);
 const itemIcons=inspectItemIcons(configs[0].source,JSON.parse(await readFile(path.join(root,'data/items.json'),'utf8')));
-const spriteAssets=inspectPreloadedSprites(mains[0].source,JSON.parse(await readFile(path.join(root,'data/sprites.json'),'utf8')));
+const spriteAssets=inspectAnimatedSprites(JSON.parse(await readFile(path.join(root,'data/sprites.json'),'utf8')));
 const names=new Set(manifest.files.map(entry=>entry.name));
 for(const name of inspectMutationAssets(configs[0].source)) {
  if(!names.has(name))throw new Error(`Missing mutation asset: ${name}`);

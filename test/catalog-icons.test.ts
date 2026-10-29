@@ -13,7 +13,7 @@ const config=`const reactions=['gg','love'];const marker='slot-move';export {rea
 const main="import {reactionExport as reactionList} from './config.js';"
  +"function icon(id){return `ui/icons/${id}.png`;}"
  +"const statuses=[{id:'poison'}];for(const status of statuses)icon('st-'+status.id);"
- +"reactionList.map(reaction=>icon('r-'+reaction));this.sprites.preload([249].filter(id=>registry.get(id)&&registry.hasAnimated(id)));class Application{}export{Application as App}";
+ +"reactionList.map(reaction=>icon('r-'+reaction));class Application{}export{Application as App}";
 
 test('dynamic reaction icons follow catalog additions and renamed import/export bindings',()=>{
   for(const rename of [false,true]) {

@@ -7,7 +7,7 @@ import { patchGame, inspectGame } from './patch-game.ts';
 import { inspectIconCatalogs } from './catalog-icons.ts';
 import {inspectItemIcons} from './item-icons.ts';
 import {inspectMutationAssets} from './mutation-assets.ts';
-import {inspectPreloadedSprites} from './sprite-assets.ts';
+import {inspectAnimatedSprites} from './sprite-assets.ts';
 import {requestUpstream} from './upstream-request.ts';
 import {versionForBuild} from './upstream-version.ts';
 import {offlineVersion,sourceDigest} from './release-source.ts';
@@ -129,7 +129,7 @@ for (const id of species) {
   const sprite = sprites[id];
   if (isRecord(sprite) && sprite['fallback']) add('assets/' + textValue(sprite['fallback']));
 }
-for(const key of inspectPreloadedSprites(main,sprites))add(key);
+for(const key of inspectAnimatedSprites(sprites))add(key);
 const itemIcons=inspectItemIcons(config,itemData);
 const requiredItems=new Set(itemIcons);
 for(const item of Object.values(itemData))if(isRecord(item)&&item['icon']) {

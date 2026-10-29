@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Collect animated scene sprites beyond the playable generation limit and retry transient upstream GET failures without masking permanent errors.
+- Collect the complete animated sprite catalog independently of playable generation limits and scene references and retry transient upstream GET failures without masking permanent errors.
 
 ## 0.0.5
 
