@@ -4,7 +4,8 @@
 
 ### Patch Changes
 
-- Collect the complete animated sprite catalog independently of playable generation limits and scene references and retry transient upstream GET failures, including interrupted response bodies, without masking permanent errors. Checkpoint completed upstream downloads so failed CI attempts can resume, while retaining all verification gates.
+- Build from a verified upstream snapshot committed to Git, so upstream outages cannot block builder fixes or packaging. A separate six-hour sync validates candidates across all platforms before committing them and triggering a release.
+- Collect the complete animated sprite catalog, retry interrupted response bodies, and checkpoint downloads during upstream synchronization.
 
 ## 0.0.5
 

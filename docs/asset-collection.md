@@ -1,6 +1,6 @@
 # Catalog-driven asset collection
 
-`prepare-game.ts` must enumerate every member of the status, clan-reaction, gameplay-upgrade, held-item, and shop icon catalogs. Their images are required downloads, so an unavailable catalog image stops collection. `verify-game.ts` independently resolves the catalogs from the bundled modules, checks manifest membership and PNG signatures, and rejects an otherwise consistent bundle that omits a catalog member. Electron and Android runtime checks decode the catalog images through the native origin.
+`sync-upstream.ts` must enumerate every member of the status, clan-reaction, gameplay-upgrade, held-item, and shop icon catalogs. Their images are required downloads, so an unavailable catalog image stops collection. `verify-game.ts` independently resolves the catalogs from the bundled modules, checks manifest membership and PNG signatures, and rejects an otherwise consistent bundle that omits a catalog member. Electron and Android runtime checks decode the catalog images through the native origin.
 
 ## Gameplay item image omission
 
@@ -75,6 +75,11 @@ The complete animated sprite family is now collected from its data catalog. The 
 
 The upstream server can remain unavailable beyond the GET retry budget. A current-head CI attempt on October 29 exhausted retries on a font with Cloudflare 522, before sprite collection. A rerun was still downloading fonts after 19 minutes. This is a separate acquisition failure, not evidence against sprite completeness.
 
-CI restores and checkpoints only `cache/upstream`, keyed by upstream build, run and attempt. Prefix restore selects the latest checkpoint for the same build. Acquisition has a 20-minute process budget, leaving time to checkpoint before the job deadline. The save step also runs after a collection failure; a new attempt can reuse completed responses instead of restarting. Cache writes use a temporary file followed by rename, so a checkpoint cannot expose a partially written response under its final URL-hash name. Binary HTML-error detection precedes cache publication. Temporary files are never cache reads.
+The sync workflow restores and checkpoints only `cache/upstream`, keyed by upstream build, run and attempt. Prefix restore selects the latest checkpoint for the same build. Acquisition has a 20-minute process budget, leaving time to checkpoint before the job deadline. The save step also runs after a collection failure; a new attempt can reuse completed responses instead of restarting. Cache writes use a temporary file followed by rename, so a checkpoint cannot expose a partially written response under its final URL-hash name. Binary HTML-error detection precedes cache publication. Temporary files are never cache reads.
 
 [GitHub documents immutable caches and branch isolation](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching). A unique attempt key allows a partial cache to grow; PR caches do not become default-branch caches. The path contains public upstream responses and optional-missing markers, not credentials or saves. Cache service failures remain non-blocking optimizations. Collection, all payload checks, native tests and release gates still run, and required downloads still fail after exhausted retries. Checkpointing mitigates lost progress; it cannot repair an unavailable origin.
+
+
+## Committed inputs and offline preparation
+
+The captured, unmodified upstream files now live in `vendor/pokebonk/game/`, with a versioned inventory and digest in `snapshot.json`. `prepare-game.ts` reads and verifies this committed input and performs no downloads; `sync-upstream.ts` alone acquires newer candidates. The separate sync validates candidates through the shared platform workflow before a data-only writer commits the exact validated digest. See [upstream snapshots](upstream-snapshots.md) for the ownership and failure boundaries. This freezes the supported captured inventory; it does not establish that the origin exposes no additional resources.
