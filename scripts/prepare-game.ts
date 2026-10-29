@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -22,6 +22,13 @@ const missing: string[] = [];
 const sha = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 await mkdir(cache, { recursive: true });
 
+async function cacheBytes(file:string,bytes:string|Buffer) {
+  // A failed or interrupted run may checkpoint this directory. Readers only
+  // use the final URL-hash name, never an incomplete temporary write.
+  await writeFile(file+'.tmp',bytes);
+  await rename(file+'.tmp',file);
+}
+
 async function download(resource: string, optional = false): Promise<Buffer | null> {
   const url = new URL(resource, origin);
   if (url.origin !== origin || url.pathname.includes('..') || !/^\/[\w./-]+$/.test(url.pathname)) throw new Error(`Invalid static URL: ${url}`);
@@ -33,21 +40,23 @@ async function download(resource: string, optional = false): Promise<Buffer | nu
     try { await readFile(cached + '.missing'); missing.push(key); return null; } catch {}
   }
   let bytes;
+  let downloaded=false;
   try { bytes = await readFile(cached); } catch {
     const response = await requestUpstream(url);
-    if (response.status === 404 && optional) { await writeFile(cached + '.missing', '404'); missing.push(key); return null; }
+    if (response.status === 404 && optional) { await cacheBytes(cached + '.missing', '404'); missing.push(key); return null; }
     if (!response.ok) throw new Error(`Static download ${response.status}: ${url}`);
     const size = Number(response.headers.get('content-length') ?? 0);
     if (size > 32 * 1024 * 1024) throw new Error(`Asset too large: ${url}`);
     bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.length > 32 * 1024 * 1024) throw new Error(`Asset too large: ${url}`);
-    await writeFile(cached, bytes);
+    downloaded=true;
   }
   if (!bytes) throw new Error(`No bytes downloaded: ${url}`);
   if (/\.(png|jpg|glb|ogg|woff2?)$/.test(key) && bytes.subarray(0, 100).toString().includes('<!doctype html')) {
     if (optional) { missing.push(key); return null; }
     throw new Error(`HTML returned for binary asset: ${key}`);
   }
+  if(downloaded)await cacheBytes(cached,bytes);
   files.set(key, bytes);
   if (files.size % 100 === 0) console.log(`Collected ${files.size} files (${key})`);
   return bytes;

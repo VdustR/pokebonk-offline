@@ -69,3 +69,12 @@ Without that artifact, prefer a conservative finite inventory for each resource 
 | Download on first use | Used by the community [multiplayer server](https://github.com/vacfeg/pokebonk-multiplayer/blob/main/server.js), but first access still needs the upstream server. It does not meet this project's fully bundled offline contract. |
 
 The complete animated sprite family is now collected from its data catalog. The next architectural step is to audit the remaining URL-producing helpers by resource family and establish complete finite inventories where possible, rather than adding a resolver for each new gameplay scenario. Unknown families and URL-rule changes remain a limitation until that audit is implemented. Keep native offline tests as an independent defense. Do not claim exhaustive offline completeness from either request capture or shared collector/verifier logic alone.
+
+
+## Resuming interrupted upstream downloads
+
+The upstream server can remain unavailable beyond the GET retry budget. A current-head CI attempt on October 29 exhausted retries on a font with Cloudflare 522, before sprite collection. A rerun was still downloading fonts after 19 minutes. This is a separate acquisition failure, not evidence against sprite completeness.
+
+CI restores and checkpoints only `cache/upstream`, keyed by upstream build, run and attempt. Prefix restore selects the latest checkpoint for the same build. Acquisition has a 20-minute process budget, leaving time to checkpoint before the job deadline. The save step also runs after a collection failure; a new attempt can reuse completed responses instead of restarting. Cache writes use a temporary file followed by rename, so a checkpoint cannot expose a partially written response under its final URL-hash name. Binary HTML-error detection precedes cache publication. Temporary files are never cache reads.
+
+[GitHub documents immutable caches and branch isolation](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching). A unique attempt key allows a partial cache to grow; PR caches do not become default-branch caches. The path contains public upstream responses and optional-missing markers, not credentials or saves. Cache service failures remain non-blocking optimizations. Collection, all payload checks, native tests and release gates still run, and required downloads still fail after exhausted retries. Checkpointing mitigates lost progress; it cannot repair an unavailable origin.

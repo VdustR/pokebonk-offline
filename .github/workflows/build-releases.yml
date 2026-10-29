@@ -44,17 +44,40 @@ jobs:
       - name: Install native desktop test window manager
         if: steps.identity.outputs.changed == 'true'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox x11-utils
-      - name: Prepare and verify bundled game
+      - name: Restore upstream downloads
+        continue-on-error: true
+        timeout-minutes: 5
         if: steps.identity.outputs.changed == 'true'
-        env:
-          EXPECTED_BUILD: ${{ steps.identity.outputs.build }}
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: cache/upstream
+          key: upstream-v1-${{ runner.os }}-${{ steps.identity.outputs.build }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: upstream-v1-${{ runner.os }}-${{ steps.identity.outputs.build }}-
+      - name: Validate builder
+        if: steps.identity.outputs.changed == 'true'
         run: |
           pnpm exec install-electron
           pnpm typecheck
           pnpm test:types
           pnpm test
-          pnpm prepare:game
+      - name: Collect and verify bundled game
+        if: steps.identity.outputs.changed == 'true'
+        env:
+          EXPECTED_BUILD: ${{ steps.identity.outputs.build }}
+        run: |
+          timeout --kill-after=30s 20m pnpm prepare:game
           node scripts/verify-game.ts
+      - name: Checkpoint upstream downloads
+        continue-on-error: true
+        timeout-minutes: 5
+        if: always() && !cancelled() && steps.identity.outputs.changed == 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: cache/upstream
+          key: upstream-v1-${{ runner.os }}-${{ steps.identity.outputs.build }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Verify native desktop behavior
+        if: steps.identity.outputs.changed == 'true'
+        run: |
           bash e2e/with-linux-desktop.sh pnpm repro:window-lifecycle
           bash e2e/with-linux-desktop.sh pnpm repro:fullscreen
           xvfb-run -a pnpm repro:pointer-lock
