@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.6
+
+### Patch Changes
+
+- Collect animated scene sprites beyond the playable generation limit and retry transient upstream GET failures without masking permanent errors.
+
 ## 0.0.5
 
 ### Patch Changes

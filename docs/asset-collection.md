@@ -42,3 +42,30 @@ This covers the resolved icon catalogs, not a general proof of all assets. Other
 The static audit found no external image or buffer URIs in the 86 bundled GLB models. That rules out secondary-file omissions within those models, not missing entire models or rendering failures. The 316 absent optional candidates in the original manifest include guessed filenames and unsupported categories; they are not 316 established defects.
 
 For a remaining in-battle symptom, capture failed request URLs and responses, loader errors, console errors, and rejected promises from the same map and encounter. Environment and model loaders can swallow a failure and return null, so the absence of a browser broken-image icon cannot establish success.
+
+## Scene sprites outside the playable generation
+
+On October 29, 2026, two scheduled CI runs for upstream build `mvtagocc` failed on `assets/pmd/249.png` and `assets/pmd/250.png`. The playable generation still ended at 151, but scene constructors preloaded animated Pokémon outside that range. Another scene preloaded nine additional species. The collector's playable-species rule did not cover these ambient actors.
+
+`sprite-assets.ts` resolves finite sprite preload arrays from the actual main module and applies the sprite catalog's animated-entry condition. Collection makes these PMD images mandatory, and verification recomputes them from the bundled main module and `data/sprites.json`. The correction adds nine files, taking the observed payload from 2,203 files / 65.6 MiB to 2,212 files / 66.0 MiB. Removing their manifest entries still fails verification. This fixes the observed finite preloads; it does not establish completeness of arbitrary dynamic lists.
+
+A separate scheduled run failed while connecting to the upstream server. Both version discovery and collection now use the same bounded upstream GET retry boundary: at most three attempts for recognized transient connection failures, timeouts, HTTP 408/429, or server errors. Permanent responses, invalid URLs, validation errors, and exhausted attempts remain failures. Optional 404 candidates retain their existing behavior. A local HTTP server exercises a dropped connection, transient and persistent server failures, and a permanent 404.
+
+## Moving completeness to the source boundary
+
+The long-term invariant is that every local resource a supported build can request belongs to the packaged inventory. A manifest generated from already downloaded files proves integrity, but cannot prove that undiscovered files do not exist. Representative runtime tests prove only exercised paths.
+
+The preferred source would be an upstream artifact containing the complete deployed directory and an inventory tied to its build. A Vite chunk manifest alone is insufficient for dynamically constructed public URLs: [Vite documents imported assets as part of the build graph](https://vite.dev/guide/assets), while public files are copied separately as-is. Its [build manifest](https://vite.dev/guide/backend-integration) describes emitted chunks, imports, CSS, and associated assets. Complete public-directory inventory must therefore be an explicit part of any upstream contract.
+
+A live probe on October 29 found HTTP 404 at `/.vite/manifest.json`, `/asset-manifest.json`, and `/assets/manifest.json`. `/manifest.webmanifest` exists but describes app installation, not a complete inventory. These probes do not establish that no complete inventory or source artifact is available anywhere.
+
+Without that artifact, prefer a conservative finite inventory for each resource family, derived from data catalogs rather than currently exercised gameplay. For example, `data/sprites.json` describes 1,025 species, including 971 animated entries, of which 820 exceed the playable limit of 151. Enumerating the animated catalog would remove dependence on scene preload syntax for this family. It would also download substantially more files; total transfer, package size, server availability, and catalog-to-file consistency need a bounded measurement before adopting it. Catalog presence alone does not prove a file exists.
+
+| Approach | Guarantee and limitation |
+| --- | --- |
+| Complete upstream artifact and build inventory | Strongest boundary: all deployed files are available before packaging. Requires an upstream source that has not been established. |
+| Complete finite catalogs per resource family | Covers additions within known families without understanding every scene. Requires verified URL rules, availability and a measured size budget; unknown families must still be detected. |
+| Runtime request capture during build | Finds resources requested by exercised scenes and can supplement the inventory. Unvisited events, dates and branches remain uncovered. |
+| Download on first use | Used by the community [multiplayer server](https://github.com/vacfeg/pokebonk-multiplayer/blob/main/server.js), but first access still needs the upstream server. It does not meet this project's fully bundled offline contract. |
+
+The next architectural experiment should enumerate and measure the full animated sprite family without changing the supported game or release contract. If its size and availability are acceptable, replace scene-dependent sprite discovery with that catalog inventory. Audit the remaining URL-producing helpers by resource family and reject unaccounted dynamic families before release. Keep native offline tests as an independent defense. Do not claim exhaustive offline completeness from either request capture or shared collector/verifier logic alone.

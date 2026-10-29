@@ -7,6 +7,8 @@ import { patchGame, inspectGame } from './patch-game.ts';
 import { inspectIconCatalogs } from './catalog-icons.ts';
 import {inspectItemIcons} from './item-icons.ts';
 import {inspectMutationAssets} from './mutation-assets.ts';
+import {inspectPreloadedSprites} from './sprite-assets.ts';
+import {requestUpstream} from './upstream-request.ts';
 import {versionForBuild} from './upstream-version.ts';
 import {offlineVersion,sourceDigest} from './release-source.ts';
 
@@ -32,20 +34,14 @@ async function download(resource: string, optional = false): Promise<Buffer | nu
   }
   let bytes;
   try { bytes = await readFile(cached); } catch {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const response = await fetch(url, { signal: AbortSignal.timeout(60000) });
-      if (response.status === 404 && optional) { await writeFile(cached + '.missing', '404'); missing.push(key); return null; }
-      if (!response.ok) {
-        if (attempt < 2) continue;
-        throw new Error(`Static download ${response.status}: ${url}`);
-      }
-      const size = Number(response.headers.get('content-length') ?? 0);
-      if (size > 32 * 1024 * 1024) throw new Error(`Asset too large: ${url}`);
-      bytes = Buffer.from(await response.arrayBuffer());
-      if (bytes.length > 32 * 1024 * 1024) throw new Error(`Asset too large: ${url}`);
-      await writeFile(cached, bytes);
-      break;
-    }
+    const response = await requestUpstream(url);
+    if (response.status === 404 && optional) { await writeFile(cached + '.missing', '404'); missing.push(key); return null; }
+    if (!response.ok) throw new Error(`Static download ${response.status}: ${url}`);
+    const size = Number(response.headers.get('content-length') ?? 0);
+    if (size > 32 * 1024 * 1024) throw new Error(`Asset too large: ${url}`);
+    bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > 32 * 1024 * 1024) throw new Error(`Asset too large: ${url}`);
+    await writeFile(cached, bytes);
   }
   if (!bytes) throw new Error(`No bytes downloaded: ${url}`);
   if (/\.(png|jpg|glb|ogg|woff2?)$/.test(key) && bytes.subarray(0, 100).toString().includes('<!doctype html')) {
@@ -133,6 +129,7 @@ for (const id of species) {
   const sprite = sprites[id];
   if (isRecord(sprite) && sprite['fallback']) add('assets/' + textValue(sprite['fallback']));
 }
+for(const key of inspectPreloadedSprites(main,sprites))add(key);
 const itemIcons=inspectItemIcons(config,itemData);
 const requiredItems=new Set(itemIcons);
 for(const item of Object.values(itemData))if(isRecord(item)&&item['icon']) {
