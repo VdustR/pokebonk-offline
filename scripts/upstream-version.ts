@@ -1,3 +1,4 @@
+import {requestUpstream} from './upstream-request.ts';
 import type {AnyNode} from 'acorn';
 import {ast,literal,maybeName,nodesOf} from './source.ts';
 import {buildId,version} from '../types/release.ts';
@@ -12,7 +13,7 @@ export function versionForBuild(tree:AnyNode,build:string) {
   if(unique.length>1)throw new Error('Conflicting upstream versions for build');
   return unique[0];
 }
-export async function discoverUpstream(request:(url:string)=>Promise<Response>=url=>fetch(url,{signal:AbortSignal.timeout(30000)})) {
+export async function discoverUpstream(request:(url:string)=>Promise<Response>=requestUpstream) {
   const origin='https://pokebonk.com';
   const get=async(url:string)=>{
     const response=await request(url);

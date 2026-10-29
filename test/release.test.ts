@@ -32,7 +32,7 @@ test('changed packaged source without a version bump and invalid release state s
 });
 test('source fingerprint excludes docs and tests but tracks packaged tools, native code and dependencies',()=>{
   for(const file of ['README.md','docs/install.md','test/release.test.ts','evidence/file.json'])assert.equal(packagedSource(file),false);
-  for(const file of ['runtime/local-backend.ts','scripts/prepare-game.ts','desktop/main.ts','types/metadata.ts','android/app/src/main/AndroidManifest.xml','.github/workflows/build-releases.yml','pnpm-lock.yaml','package.json','LICENSE'])assert.equal(packagedSource(file),true);
+  for(const file of ['runtime/local-backend.ts','scripts/prepare-game.ts','desktop/main.ts','types/metadata.ts','android/app/src/main/AndroidManifest.xml','.github/workflows/build-releases.yml','pnpm-lock.yaml','package.json','LICENSE','.gitattributes','vendor/pokebonk/snapshot.json'])assert.equal(packagedSource(file),true);
   const a={name:'runtime/a.ts',bytes:Buffer.from('a')},b={name:'desktop/b.ts',bytes:Buffer.from('b')};
   assert.equal(fingerprint([a,b]),fingerprint([b,a]));
   assert.notEqual(fingerprint([a,b]),fingerprint([a,{...b,bytes:Buffer.from('changed')}]));

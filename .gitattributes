@@ -1,0 +1,2 @@
+vendor/pokebonk/** -text -whitespace
+vendor/pokebonk/game/** linguist-vendored

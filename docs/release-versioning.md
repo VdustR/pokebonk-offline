@@ -27,11 +27,11 @@ Use Node.js 24 LTS (24.12+) or Node.js 26+; Changesets 3 does not support Node.j
 
 ## Build identity and checks
 
-The planner reads the official HTML build ID and follows same-origin JavaScript imports to find the catalog entry for that exact build. It does not take the first version in a changelog or hardcode the UI version. Missing, conflicting, unsafe, or unsupported mappings stop the build.
+The release planner reads the committed snapshot identity after verifying its inventory. The sync workflow reads the official HTML build ID and follows same-origin JavaScript imports to select the exact upstream version before acquiring a candidate. It does not take the first version in a changelog or hardcode the UI version. Missing, conflicting, unsafe, or unsupported mappings stop the build.
 
 Each payload's `offline-build.json` records the upstream version/build, offline version, full builder Git SHA, packaged-source digest, and `unlock-all` variant. The SHA identifies this repository's source commit; it is not an upstream commit or the checksum of an APK. `SHA256SUMS.txt` identifies the actual download bytes, including `release-info.json`.
 
-The source digest includes tracked and non-ignored source/tool/native/dependency/workflow inputs, but excludes documentation, tests, and generated files. A published identity with the same source digest is a no-op even when a documentation commit changed HEAD. Changed packaged source under an existing identity is rejected with an instruction to bump the offline version. A draft can be resumed only from its original source commit. HTTP/authentication errors and invalid existing provenance remain visible failures, not missing-release signals.
+The source digest includes tracked and non-ignored source/tool/native/dependency/workflow inputs, `.gitattributes`, and the snapshot manifest committing every upstream file hash. Raw snapshot bytes are validated against that manifest rather than hashed a second time into the builder fingerprint. Documentation, tests, and generated output remain excluded. A published identity with the same source digest is a no-op even when a documentation commit changed HEAD. Changed packaged source under an existing identity is rejected with an instruction to bump the offline version. A draft can be resumed only from its original source commit. HTTP/authentication errors and invalid existing provenance remain visible failures, not missing-release signals.
 
 Electron's application version and Android's versionName use the offline version. Android's versionCode retains the existing monotonically increasing CI counter and the existing signing certificate. Application IDs, desktop names/user-data paths, and local save keys remain unchanged for the Unlocked edition.
 

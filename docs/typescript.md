@@ -1,6 +1,6 @@
 # TypeScript boundaries and verification
 
-All maintained JavaScript has moved to TypeScript. The game downloaded from PokéBonk remains upstream JavaScript, and the Android shell remains Java/Gradle. Build output, bundled assets, and caches are ignored generated files, owned by the collector, TypeScript compiler, and Android build respectively.
+All maintained JavaScript has moved to TypeScript. The game snapshot stored under `vendor/pokebonk/game/` remains upstream JavaScript, and the Android shell remains Java/Gradle. Only JavaScript files listed in the verified snapshot manifest are exempt from authored-source coverage; unlisted vendor JavaScript still rejects. Build output and caches are ignored generated files, owned by the collector, TypeScript compiler, and Android build respectively.
 
 ## Stack decision
 

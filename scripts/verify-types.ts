@@ -2,6 +2,7 @@ import {execFileSync} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {record} from '../types/data.ts';
+import {readSnapshotManifest,snapshotDirectory} from './upstream-snapshot.ts';
 
 const root=process.cwd();
 const projects=['node','desktop','runtime','e2e'] as const;
@@ -20,11 +21,14 @@ for(const project of projects) {
   owned.set(project,inputs);
 }
 // Git inventories tracked and new files, including hidden directories, while
-// honoring generated/vendor exclusions in .gitignore. Deleted files are absent.
+// honoring generated exclusions in .gitignore. Only manifest-listed upstream
+// JavaScript is third-party data; other JavaScript still requires migration.
 const inventory=execFileSync('git',['ls-files','--cached','--others','--exclude-standard','-z'],{encoding:'utf8'}).split('\0').filter(Boolean);
+const snapshot=await readSnapshotManifest();
+const upstream=new Set(snapshot.files.map(entry=>`${snapshotDirectory}/game/${entry.name}`));
 let count=0;
 for(const relative of new Set(inventory)) {
-  if(!/\.(?:[cm]?[jt]sx?)$/.test(relative))continue;
+  if(!/\.(?:[cm]?[jt]sx?)$/.test(relative)||upstream.has(relative))continue;
   try {await readFile(relative);}catch(error){if(record(error)['code']==='ENOENT')continue;throw error;}
   if(/\.(?:[cm]?jsx?)$/.test(relative))throw new Error(`Unmigrated authored JavaScript: ${relative}`);
   const full=path.resolve(relative);
@@ -37,4 +41,4 @@ for(const relative of new Set(inventory)) {
   const source=await readFile(relative,'utf8');
   if(/@ts-(?:nocheck|ignore)\b|(?:[:<,|&]\s*|as\s+)any\b/.test(source))throw new Error(`Unchecked source escape: ${relative}`);
 }
-console.log(`Verified ${count} maintained TypeScript/declaration inputs across ${projects.length} environments; generated build/cache/dist/Android assets are excluded by Git.`);
+console.log(`Verified ${count} maintained TypeScript/declaration inputs across ${projects.length} environments; generated assets are excluded by Git; vendored upstream sources are manifest-allowlisted.`);

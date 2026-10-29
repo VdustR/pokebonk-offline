@@ -1,0 +1,105 @@
+name: Sync upstream snapshot
+
+on:
+  schedule:
+    - cron: '41 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-snapshot-sync
+  cancel-in-progress: false
+
+jobs:
+  acquire:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      changed: ${{ steps.identity.outputs.changed }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
+        with:
+          version: 10.33.2
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Check upstream identity
+        id: identity
+        run: node scripts/check-upstream.ts
+      - name: Restore upstream downloads
+        if: steps.identity.outputs.changed == 'true'
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: cache/upstream
+          key: upstream-v2-${{ runner.os }}-${{ steps.identity.outputs.build }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: upstream-v2-${{ runner.os }}-${{ steps.identity.outputs.build }}-
+      - name: Collect pristine candidate
+        if: steps.identity.outputs.changed == 'true'
+        env:
+          EXPECTED_BUILD: ${{ steps.identity.outputs.build }}
+        run: timeout --kill-after=30s 20m pnpm sync:upstream
+      - name: Checkpoint completed downloads
+        if: always() && !cancelled() && steps.identity.outputs.changed == 'true'
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: cache/upstream
+          key: upstream-v2-${{ runner.os }}-${{ steps.identity.outputs.build }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.identity.outputs.changed == 'true'
+        with:
+          name: upstream-candidate
+          path: cache/upstream-candidate/
+          retention-days: 1
+
+  validate:
+    needs: acquire
+    if: needs.acquire.outputs.changed == 'true'
+    uses: ./.github/workflows/build-game.yml
+    with:
+      snapshot_artifact: upstream-candidate
+      publish: false
+
+  publish:
+    needs: [acquire, validate]
+    if: needs.acquire.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: upstream-candidate
+          path: cache/upstream-candidate
+      - name: Commit the validated data snapshot
+        env:
+          EXPECTED_SNAPSHOT_DIGEST: ${{ needs.validate.outputs.snapshotDigest }}
+        run: |
+          node scripts/promote-upstream.ts cache/upstream-candidate vendor/pokebonk "$EXPECTED_SNAPSHOT_DIGEST"
+          git add -- vendor/pokebonk
+          if git diff --cached --quiet; then
+            echo 'Snapshot is already current.'
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Sync verified PokéBonk upstream snapshot'
+          git push origin HEAD:main
+      - name: Build and publish the committed snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-releases.yml --ref main

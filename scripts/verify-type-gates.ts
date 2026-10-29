@@ -54,7 +54,15 @@ try {
     catch(error){output=String(record(error)['stderr']);}
     if(!output.includes('Uncovered source or environment: type-coverage-probe.ts'))throw new Error('Coverage gate accepted an orphan source');
   } finally {await rm(orphan);}
+  const unlisted=path.resolve('vendor/pokebonk/game/type-coverage-probe.js');
+  await writeFile(unlisted,'globalThis.unchecked=true;',{flag:'wx'});
+  try {
+    let output='';
+    try {execFileSync(process.execPath,['scripts/verify-types.ts'],{encoding:'utf8',stdio:'pipe'});}
+    catch(error){output=String(record(error)['stderr']);}
+    if(!output.includes('Unmigrated authored JavaScript: vendor/pokebonk/game/type-coverage-probe.js'))throw new Error('Coverage gate accepted unlisted vendor JavaScript');
+  } finally {await rm(unlisted);}
   await mkdir('evidence',{recursive:true});
   await writeFile('evidence/types-cache.json',JSON.stringify({compiler:execFileSync(process.execPath,['node_modules/typescript/lib/tsc.js','--version'],{encoding:'utf8'}).trim(),results},null,2));
-  console.log(`Passed ${results.length} cold/repeated/source/dependency/global/config compiler probes (incremental disabled) and orphan-file rejection.`);
+  console.log(`Passed ${results.length} cold/repeated/source/dependency/global/config compiler probes (incremental disabled) and orphan/unlisted-vendor rejection.`);
 } finally {await rm(directory,{recursive:true,force:true});}

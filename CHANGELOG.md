@@ -1,5 +1,12 @@
 # pokebonk-offline-builder
 
+## 0.0.6
+
+### Patch Changes
+
+- Build from a verified upstream snapshot committed to Git, so upstream outages cannot block builder fixes or packaging. A separate six-hour sync validates candidates across all platforms before committing them and triggering a release.
+- Collect the complete animated sprite catalog, retry interrupted response bodies, and checkpoint downloads during upstream synchronization.
+
 ## 0.0.5
 
 ### Patch Changes

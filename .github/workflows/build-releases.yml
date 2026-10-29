@@ -6,8 +6,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-  schedule:
-    - cron: '41 */6 * * *'
 
 permissions:
   contents: read
@@ -17,184 +15,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  prepare:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    outputs:
-      changed: ${{ steps.identity.outputs.changed }}
-      tag: ${{ steps.identity.outputs.tag }}
-      build: ${{ steps.identity.outputs.build }}
-      offlineVersion: ${{ steps.identity.outputs.offlineVersion }}
-      title: ${{ steps.identity.outputs.title }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: '24'
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
-        with:
-          version: 10.33.2
-      - name: Install version and inspection tools
-        run: pnpm install --frozen-lockfile --ignore-scripts
-      - name: Check upstream and offline release versions
-        id: identity
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/check-update.ts
-      - name: Install native desktop test window manager
-        if: steps.identity.outputs.changed == 'true'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox x11-utils
-      - name: Prepare and verify bundled game
-        if: steps.identity.outputs.changed == 'true'
-        env:
-          EXPECTED_BUILD: ${{ steps.identity.outputs.build }}
-        run: |
-          pnpm exec install-electron
-          pnpm typecheck
-          pnpm test:types
-          pnpm test
-          pnpm prepare:game
-          node scripts/verify-game.ts
-          bash e2e/with-linux-desktop.sh pnpm repro:window-lifecycle
-          bash e2e/with-linux-desktop.sh pnpm repro:fullscreen
-          xvfb-run -a pnpm repro:pointer-lock
-          bash e2e/with-linux-desktop.sh node e2e/fullscreen-game.ts
-          xvfb-run -a pnpm e2e:electron
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: steps.identity.outputs.changed == 'true'
-        with:
-          name: game
-          path: build/game/
-          compression-level: 0
-          retention-days: 3
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always() && steps.identity.outputs.changed == 'true'
-        with:
-          name: evidence
-          path: evidence/
-          if-no-files-found: ignore
-          retention-days: 3
+  validate:
+    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+    uses: ./.github/workflows/build-game.yml
+    with:
+      publish: false
 
-  desktop:
-    needs: prepare
-    if: needs.prepare.outputs.changed == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { runner: ubuntu-24.04, platform: linux, arch: x64 }
-          - { runner: ubuntu-24.04, platform: win32, arch: x64 }
-          - { runner: macos-15, platform: darwin, arch: arm64 }
-          - { runner: macos-15, platform: darwin, arch: x64 }
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: '24'
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
-        with:
-          version: 10.33.2
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: game
-          path: build/game
-      - name: Package Electron app
-        run: |
-          pnpm install --frozen-lockfile
-          node scripts/verify-game.ts
-          pnpm package:electron build/game release ${{ matrix.platform }} ${{ matrix.arch }}
-      - name: Install Linux native window manager
-        if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox x11-utils
-      - name: Test packaged Linux app
-        if: matrix.platform == 'linux'
-        run: |
-          mkdir -p packaged
-          tar -xzf release/*.tar.gz -C packaged
-          bash e2e/with-linux-desktop.sh node e2e/fullscreen-game.ts build/game 'packaged/Pokebonk Offline-linux-x64/Pokebonk Offline'
-          xvfb-run -a pnpm e2e:electron build/game 'packaged/Pokebonk Offline-linux-x64/Pokebonk Offline'
-      - name: Test packaged native macOS app
-        if: matrix.platform == 'darwin'
-        run: |
-          mkdir -p packaged
-          ditto -x -k release/*.zip packaged
-          if [[ "$(node -p process.arch)" == '${{ matrix.arch }}' ]]; then
-            node e2e/fullscreen-game.ts build/game 'packaged/Pokebonk Offline-darwin-${{ matrix.arch }}/Pokebonk Offline.app/Contents/MacOS/Pokebonk Offline'
-            pnpm e2e:electron build/game 'packaged/Pokebonk Offline-darwin-${{ matrix.arch }}/Pokebonk Offline.app/Contents/MacOS/Pokebonk Offline'
-          fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
-          path: release/*
-          retention-days: 3
-
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: evidence-${{ matrix.platform }}-${{ matrix.arch }}
-          path: evidence/
-          if-no-files-found: ignore
-          retention-days: 3
-
-  android:
-    needs: prepare
-    if: needs.prepare.outputs.changed == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: '24'
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
-        with:
-          version: 10.33.2
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: game
-          path: build/game
-      - name: Stage and build Android
-        run: |
-          pnpm install --frozen-lockfile --ignore-scripts
-          node scripts/verify-game.ts
-          node scripts/stage-android.ts
-          cd android
-          ./gradlew --no-daemon -PpokebonkVersionCode="$((100000 + GITHUB_RUN_NUMBER))" -PpokebonkVersionName="${{ needs.prepare.outputs.offlineVersion }}" assembleRelease lintRelease
-      - name: Sign and verify APK
-        if: github.event_name != 'pull_request'
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          for key in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_PASSWORD; do
-            test -n "${!key}"
-          done
-          keystore="$RUNNER_TEMP/pokebonk.jks"
-          trap 'rm -f "$keystore"' EXIT
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
-          chmod 600 "$keystore"
-          node scripts/sign-android.ts android/app/build/outputs/apk/release/app-release-unsigned.apk release/pokebonk-offline-${{ needs.prepare.outputs.offlineVersion }}-unlocked-android.apk "$keystore"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: github.event_name != 'pull_request'
-        with:
-          name: android
-          path: |
-            release/*.apk
-            release/*.verification.json
-          retention-days: 3
+  build:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/build-game.yml
+    with:
+      publish: true
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
   release:
-    needs: [prepare, desktop, android]
-    if: github.event_name != 'pull_request' && needs.prepare.outputs.changed == 'true'
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.build.outputs.changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -210,8 +50,8 @@ jobs:
       - name: Publish complete release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.prepare.outputs.tag }}
-          TITLE: ${{ needs.prepare.outputs.title }}
+          TAG: ${{ needs.build.outputs.tag }}
+          TITLE: ${{ needs.build.outputs.title }}
         run: |
           set -euo pipefail
           mkdir release

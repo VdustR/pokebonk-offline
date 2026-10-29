@@ -17,7 +17,8 @@
     "build": "tsc -p tsconfig.desktop.build.json && tsc -p tsconfig.runtime.build.json",
     "test:types": "node scripts/verify-type-gates.ts",
     "changeset": "changeset",
-    "version:release": "changeset version"
+    "version:release": "changeset version",
+    "sync:upstream": "node scripts/sync-upstream.ts"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",
@@ -35,5 +36,5 @@
   "engines": {
     "node": "^24.12.0 || >=26"
   },
-  "version": "0.0.5"
+  "version": "0.0.6"
 }
