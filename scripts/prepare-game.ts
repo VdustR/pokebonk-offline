@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { ast, nodes, nodesOf, literal, maybeName, nameOf, requireNode } from './source.ts';
 import { patchGame, inspectGame } from './patch-game.ts';
@@ -25,8 +25,9 @@ await mkdir(cache, { recursive: true });
 async function cacheBytes(file:string,bytes:string|Buffer) {
   // A failed or interrupted run may checkpoint this directory. Readers only
   // use the final URL-hash name, never an incomplete temporary write.
-  await writeFile(file+'.tmp',bytes);
-  await rename(file+'.tmp',file);
+  const temporary=file+'.'+randomUUID()+'.tmp';
+  await writeFile(temporary,bytes,{flag:'wx'});
+  await rename(temporary,file);
 }
 
 async function download(resource: string, optional = false): Promise<Buffer | null> {
@@ -42,7 +43,7 @@ async function download(resource: string, optional = false): Promise<Buffer | nu
   let bytes;
   let downloaded=false;
   try { bytes = await readFile(cached); } catch {
-    const response = await requestUpstream(url);
+    const response = await requestUpstream(url,{maxBytes:32*1024*1024});
     if (response.status === 404 && optional) { await cacheBytes(cached + '.missing', '404'); missing.push(key); return null; }
     if (!response.ok) throw new Error(`Static download ${response.status}: ${url}`);
     const size = Number(response.headers.get('content-length') ?? 0);
