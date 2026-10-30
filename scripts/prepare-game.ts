@@ -9,6 +9,7 @@ import {inspectItemIcons} from './item-icons.ts';
 import {versionForBuild} from './upstream-version.ts';
 import {offlineVersion,sourceDigest} from './release-source.ts';
 import {readSnapshot,snapshotDirectory} from './upstream-snapshot.ts';
+import {patchNativeOriginGate} from './native-origin.ts';
 
 const output=path.resolve(process.argv[2]??'build/game');
 const snapshotRoot=process.argv[3]??snapshotDirectory;
@@ -28,6 +29,8 @@ const sha=(value:string|Buffer)=>createHash('sha256').update(value).digest('hex'
 const patched = patchGame(main, config, await readFile('dist/runtime/local-backend.js','utf8'));
 files.set(mainKey, Buffer.from(patched.main));
 files.set(configKey, Buffer.from(patched.config));
+const entryKey=one([...files.keys()].filter(key=>key.endsWith('.js')&&html.includes(`src="./${key}"`)),'snapshot entry module');
+files.set(entryKey,Buffer.from(patchNativeOriginGate(contents(entryKey))));
 const csp = "default-src 'self' blob: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; frame-src 'none'; object-src 'none'";
 // Native packages serve all assets directly; there is no PWA or service worker.
 const nativeHtml=html.replace(/<link[^>]+rel=["']manifest["'][^>]*>/g,'').replace('</head>', `<meta http-equiv="Content-Security-Policy" content="${csp}"><script>if(!localStorage.getItem('pokebonk.lang'))localStorage.setItem('pokebonk.lang','zht');</script></head>`);
