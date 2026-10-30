@@ -41,6 +41,10 @@ Inspect and validate the candidate before promotion. `promote-upstream.ts` requi
 
 ## Verification and limits
 
+Upstream 0.8.79 introduced a boot host predicate that accepts the official site and local development hosts. Preparation extends only that call with the existing Electron `pokebonk://game/` and Android `https://appassets.androidplatform.net/` asset URLs. The website predicate remains intact, including rejection of unrelated mirrors. The patch recognizes the predicate semantically and rejects unsupported shapes; older entries without hostname inspection remain byte-identical. Native origins stay unchanged to retain Web Storage. Android's asset URL follows the [documented local-content origin](https://developer.android.com/develop/ui/views/layout/webapps/load-local-content).
+
+The native fullscreen smoke check installs boot observers before reloading. If the module entry completes or fails without a local profile, it records the body, URL, boot state and renderer exceptions instead of waiting for profile readiness until timeout. The original 0.8.79 candidate reproduced the refusal, the adapted candidate reached its local menu, and restoring the original entry reproduced the refusal again.
+
 On macOS, an actual process sandbox denying network access made the previous downloader fail and allowed the new offline preparation to generate and verify all 3,022 payload files. A portable fetch-denial regression checks ordinary preparation and planning, and a failed-sync regression retains its previous candidate. Tests also reject corrupt bytes, duplicate/traversal paths, symlinks, mismatched identities and a candidate changed after validation. A Git probe verifies byte preservation even with automatic CRLF conversion enabled.
 
 This proves the checked snapshot and known asset families, not every future upstream resource scheme or physical device. The scheduled workflow's live no-op/update behavior and the final published assets require separate GitHub readback.

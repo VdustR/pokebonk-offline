@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.7
+
+### Patch Changes
+
+- Recognize the existing Electron and Android local asset origins in the upstream boot gate without changing save origins or allowing unrelated mirrors. Capture startup refusals directly in native CI evidence.
+
 ## 0.0.6
 
 ### Patch Changes
