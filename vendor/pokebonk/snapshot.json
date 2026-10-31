@@ -14370,6 +14370,16 @@
       "sha256": "252946af7180edaa3cfbcf09b1d27d97962f54070d980c9ba11ab983aea26fc5"
     },
     {
+      "name": "assets/ui/frames/mon-ace.png",
+      "bytes": 24012,
+      "sha256": "71514ed44160638a4e5b65a168f8573a39aa3d00e7241785d58fae70d211417b"
+    },
+    {
+      "name": "assets/ui/frames/mon-master.png",
+      "bytes": 32028,
+      "sha256": "3c45ba3da8bbd4d79a60c9445b0a7b4128cd58059cae7923d18a6f53079ba770"
+    },
+    {
       "name": "assets/ui/frames/mut-candy.png",
       "bytes": 38372,
       "sha256": "1ea1a5a32a036f565b6ced5ed6195fe6fb2959165e7911a5ecf1f3799b0b1a10"
@@ -14400,6 +14410,11 @@
       "sha256": "f33e1b0622e6e877a64291973100d782530d235e05ca696c99a05cb8898ee476"
     },
     {
+      "name": "assets/ui/frames/top100.png",
+      "bytes": 14608,
+      "sha256": "f978355a85e82f38dacab2f601bec2f8d1dbddbc32f52bbe92579393b5d51307"
+    },
+    {
       "name": "assets/ui/frames/top25.png",
       "bytes": 19148,
       "sha256": "431811868dea709b40f3c35ba6e7dd4ea12bd381f6385833dff6f13bb0c85b3f"
@@ -14413,6 +14428,91 @@
       "name": "assets/ui/frames/tower.png",
       "bytes": 38029,
       "sha256": "ad94d3b7ecdb87d91587cb7f28f2cff9176d37733b6a57e243795d8009097542"
+    },
+    {
+      "name": "assets/ui/frames/type-bug.png",
+      "bytes": 35940,
+      "sha256": "5bd6499442f15cb39fea0a620ecefa8ddbf0ed51c159006104f6e4278522ba53"
+    },
+    {
+      "name": "assets/ui/frames/type-dragon.png",
+      "bytes": 31601,
+      "sha256": "370f62357c662a8ae154e3e42f753ab21bc80dc74ef4bf96ccd263a1f3b12b4c"
+    },
+    {
+      "name": "assets/ui/frames/type-electric.png",
+      "bytes": 29014,
+      "sha256": "c8990739985430ff49405e968f675b8e3e6355ca094d10f61ea1ecd9ec2e9300"
+    },
+    {
+      "name": "assets/ui/frames/type-fairy.png",
+      "bytes": 37476,
+      "sha256": "b4e03603df100b3ffe8eb93e75f915dd419bd31a1216e43a7273b86058782462"
+    },
+    {
+      "name": "assets/ui/frames/type-fighting.png",
+      "bytes": 21845,
+      "sha256": "8d4ee0fe8c9358c01f85fc9d5e1b33ee1efc3ab585efbf8f9d4940834e87b428"
+    },
+    {
+      "name": "assets/ui/frames/type-fire.png",
+      "bytes": 30887,
+      "sha256": "880e49757add74f7973851aba7d1f929972ee3de8a61d345645fc19467bcdf63"
+    },
+    {
+      "name": "assets/ui/frames/type-flying.png",
+      "bytes": 30301,
+      "sha256": "3a762b33795637fe83d073974e65cafab089614acfd6e84db0cd793c0961dae5"
+    },
+    {
+      "name": "assets/ui/frames/type-ghost.png",
+      "bytes": 26221,
+      "sha256": "fa11435fe1a5ee2126b00eeedf6bafad6ca06ae95488d5523c6abff7d2c45382"
+    },
+    {
+      "name": "assets/ui/frames/type-grass.png",
+      "bytes": 32687,
+      "sha256": "2b18794add36d442c8b180214c4cd5ddb4839ebe6bfc91e1e4a2eb78837f8719"
+    },
+    {
+      "name": "assets/ui/frames/type-ground.png",
+      "bytes": 25568,
+      "sha256": "06c2d25d0787037d9e1376c05c97e7aa3a89c3aace293a82f41050db716b0569"
+    },
+    {
+      "name": "assets/ui/frames/type-ice.png",
+      "bytes": 39249,
+      "sha256": "1f460affd98b9195da41cc841010ac6c047691a1f19a92fdad9b9efb4a72c0b5"
+    },
+    {
+      "name": "assets/ui/frames/type-normal.png",
+      "bytes": 23205,
+      "sha256": "2b7bf439102798f246864fad797071e78822c64accee20bea62ab45db7886524"
+    },
+    {
+      "name": "assets/ui/frames/type-poison.png",
+      "bytes": 25874,
+      "sha256": "0e013085dbdbed09618fb4b41e43a7a9c7f036fdb0b3529d5dce5d341e09b8f4"
+    },
+    {
+      "name": "assets/ui/frames/type-psychic.png",
+      "bytes": 34541,
+      "sha256": "fbb25da0ef0c6478a94cced4d23219a8705e659060c71ccff3b9b95e6022bb02"
+    },
+    {
+      "name": "assets/ui/frames/type-rock.png",
+      "bytes": 26426,
+      "sha256": "bc8c386d5300b6352513a69f71c868e75821ebc3321e091d3bdca37c915dbc0d"
+    },
+    {
+      "name": "assets/ui/frames/type-steel.png",
+      "bytes": 33890,
+      "sha256": "571786c6b5db91b1a19c413533d8c9816c3104ca0512f7bfaca14f0bd58a1dc0"
+    },
+    {
+      "name": "assets/ui/frames/type-water.png",
+      "bytes": 29878,
+      "sha256": "8498d2f0d74652929d2a3ba10802dff0d8e544dc74987a7274bc66caed95544f"
     },
     {
       "name": "assets/ui/icons/aim.png",
@@ -15512,5 +15612,5 @@
     "assets/ui/ranks/legend.png",
     "assets/ui/ranks/silver.png"
   ],
-  "digest": "3c4d2cd85057f14f90549f9224af911d25144c6aa51d795e520caf4d22e56622"
+  "digest": "401dde8df82adb43b218d2f369c9ee5d5dcb0eb6dc285339e141ff3e06544ff3"
 }

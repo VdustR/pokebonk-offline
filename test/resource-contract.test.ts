@@ -7,7 +7,8 @@ import {assertRequiredResources,assertReviewedInputs,readResourceContract,parseR
 const png='assets/ui/icons/pc-tower.png',webp='assets/ui/desktop/forest.webp';
 test('requirements remain independent of a self-consistent downloaded-file manifest',async()=>{
   const contract=await readResourceContract(),{files}=await readSnapshot();
-  for(const missing of [png,webp]) {
+  assertRequiredResources(new Set(files.keys()),contract);
+  for(const missing of [png,webp,'assets/ui/frames/top100.png','assets/ui/frames/type-fire.png','assets/ui/frames/mon-master.png']) {
     const inventory=new Set(files.keys());inventory.delete(missing);
     assert.throws(()=>assertRequiredResources(inventory,contract),/Missing required resource/);
   }

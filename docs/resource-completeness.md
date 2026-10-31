@@ -57,3 +57,26 @@ both. Versioned upstream GETs returned valid PNG/WebP bytes for all seven.
 The original verifier returned success despite these requests failing.
 The maintained native desktop test now exercises this path without using the
 user's profile or opening an external download.
+
+### Appearance frame coverage
+
+A subsequent audit of all five appearance-picker tabs found 20 missing frame
+PNGs in the same captured upstream build: `top100`, `mon-ace`, `mon-master`, and
+17 `type-*` frames. The original collection heuristic did not enumerate the
+research-derived frame names. The unchanged-source gate correctly prevents
+unreviewed upstream changes, but cannot discover a dependency omitted from its
+initial baseline. These paths are now mandatory independently of acquisition.
+
+Native acceptance enters the picker through the local leaderboard and decodes
+all five tabs, including the full rendered frame catalog and banner backgrounds.
+For this pinned research catalog, the frame tab exposes 17 type PNGs, two
+Pokemon achievement PNGs, and the top-100 PNG. Removing a type frame reproduces
+a decode failure; an otherwise consistent manifest omitting a required frame
+also rejects. Background checks extract each CSS URL so a valid gradient layer
+does not get mistaken for a missing image.
+
+The audit also visited the main menu routes and the settings, achievement,
+Dex/glossary, lab, treasure, event and daily-mutation subpages on a disposable
+profile. Online-only profile content is unavailable in the local sandbox and
+is not covered by this observation. These are bounded current-build checks,
+not a guarantee about every future screen or remotely populated social state.
