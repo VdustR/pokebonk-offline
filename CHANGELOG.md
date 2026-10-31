@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.10
+
+### Patch Changes
+
+- Bundle and verify every release-note category icon, including improvements and events.
+
 ## 0.0.9
 
 ### Patch Changes

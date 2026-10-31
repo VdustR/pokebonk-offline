@@ -27,6 +27,13 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
   await page.getByRole('button',{name:/^成就 /}).waitFor({state:'visible',timeout:120000});
   await dismissMenuNotices(page);
+  // The fresh-version badge pulses continuously, so its bounds never settle.
+  await page.locator('.logo-ver').click({force:true});
+  await page.locator('.rel-cat-h img').first().waitFor({state:'visible'});
+  await page.locator('.rel-cat-h img').evaluateAll(async images=>{
+    await Promise.all(images.map(async image=>{if(!(image instanceof HTMLImageElement))throw new Error('Invalid release icon');await image.decode();if(!image.naturalWidth)throw new Error('Undecoded release icon: '+image.src);}));
+  });
+  await page.getByRole('button',{name:'關閉',exact:true}).click();
   const profile=await page.evaluate(()=>window.__pokebonkLocalApp.meta.profile);
   assert.equal(profile.league.length,metadata.league);
   assert.equal(Object.keys(profile.lab).length,metadata.lab);

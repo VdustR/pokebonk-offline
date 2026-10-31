@@ -83,3 +83,9 @@ The sync workflow restores and checkpoints only `cache/upstream`, keyed by upstr
 ## Committed inputs and offline preparation
 
 The captured, unmodified upstream files now live in `vendor/pokebonk/game/`, with a versioned inventory and digest in `snapshot.json`. `prepare-game.ts` reads and verifies this committed input and performs no downloads; `sync-upstream.ts` alone acquires newer candidates. The separate sync validates candidates through the shared platform workflow before a data-only writer commits the exact validated digest. See [upstream snapshots](upstream-snapshots.md) for the ownership and failure boundaries. This freezes the supported captured inventory; it does not establish that the origin exposes no additional resources.
+
+## Release-note category icons
+
+The 0.8.83 release-note renderer reads category icons from an indirect table. The previous collector found literal icon calls but omitted `level.png` (improvements) and `calabaza.png` (events). A snapshot regression reproduced the missing category image; both versioned upstream URLs returned HTTP 200 with PNG bytes. The snapshot now includes the original images.
+
+`release-icons.ts` resolves the category table from its stable category IDs and requires each icon during acquisition and payload verification. Missing, ambiguous, duplicate, or unsafe records reject the build. The verifier fixture demonstrates missing and corrupt images failing even with internally consistent manifest hashes. Native acceptance opens the release notes and decodes their rendered category images; this supplements the full-table inventory check because one release may not display every category.
