@@ -41,7 +41,7 @@ For an update, quit the app and replace its copy in Applications. Keep the same 
 
 ## Unlocks and scope
 
-The current catalogs supply every League member, maximum Lab upgrades, every shop item, character looks and cosmetics, all achievements with their title/mastery-look rewards, one billion Stardust, and 999 of each preparation item. Supported maps have every difficulty and champion medal. Daily and weekly commissions are completed and claimed when loading or saving, including after a period changes.
+The current catalogs supply every League member, maximum Lab upgrades, every shop item, character looks and cosmetics, all achievements with their title/mastery-look rewards, one billion Stardust, and 999 of each preparation item. Every treasure wheel has its full prize collection and corresponding looks, frames, and titles. Preparation-item prizes follow the same 999-per-item policy. Supported maps have every difficulty and champion medal. Daily and weekly commissions are completed and claimed when loading or saving, including after a period changes.
 
 Unlocks apply to both new and existing native-app saves. Actual run counters, recent results, selected character, equipped look, and preferences retain their values. Future-season maps without implemented gameplay stay unavailable. Online accounts, multiplayer, clans, social features, mail, and rankings remain unavailable; visible online entry points can show a local unsupported-feature message.
 

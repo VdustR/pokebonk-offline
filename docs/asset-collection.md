@@ -83,3 +83,9 @@ The sync workflow restores and checkpoints only `cache/upstream`, keyed by upstr
 ## Committed inputs and offline preparation
 
 The captured, unmodified upstream files now live in `vendor/pokebonk/game/`, with a versioned inventory and digest in `snapshot.json`. `prepare-game.ts` reads and verifies this committed input and performs no downloads; `sync-upstream.ts` alone acquires newer candidates. The separate sync validates candidates through the shared platform workflow before a data-only writer commits the exact validated digest. See [upstream snapshots](upstream-snapshots.md) for the ownership and failure boundaries. This freezes the supported captured inventory; it does not establish that the origin exposes no additional resources.
+
+## Treasure collections
+
+The 0.8.83 treasure screen uses one background per wheel: `assets/ui/treasures/bg-<wheel>.png`. Those constructed URLs were absent from the snapshot. `treasure-catalog.ts` now resolves all wheel IDs and prizes from the evaluated configuration, validates unique safe IDs and cosmetic tokens, and makes every background required during sync and verification. The pinned snapshot includes all three original PNGs, totaling about 1.4 MiB.
+
+Local profiles merge every catalog prize into `treasures[wheelId].won` and grant its cosmetic tokens. Preparation items retain the existing 999-per-item policy. Loading and saving are idempotent: no spin requests, Bonkoin deductions, extra run history, or repeated additive rewards occur. Unknown profile fields, wheel fields, and existing collection entries are retained; malformed collection structures reject without replacing the stored save. Native acceptance checks all three 10/10 tabs and decodes each background.
