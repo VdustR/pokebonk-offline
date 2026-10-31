@@ -3,7 +3,7 @@ import type {BuildMetadata} from '../types/metadata.ts';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 
-async function dismissMenuNotices(page: Page) {
+export async function dismissMenuNotices(page: Page) {
   for(let attempt=0;attempt<3;attempt++) {
     const gpu=page.getByRole('button',{name:'知道了',exact:true}).first();
     if(await gpu.isVisible().catch(()=>false))await gpu.click();

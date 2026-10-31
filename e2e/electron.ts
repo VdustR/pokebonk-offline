@@ -5,7 +5,7 @@ import {readFile,mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {checkGame} from './game-checks.ts';
+import {checkGame,dismissMenuNotices} from './game-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
 const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-e2e-'));
@@ -38,7 +38,8 @@ try {
   await app.evaluate(({app,BrowserWindow})=>{app.focus({steal:true});BrowserWindow.getAllWindows()[0]?.focus();});
   await page.waitForFunction(()=>document.hasFocus());
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
-  await page.locator('.dk-btn').click({force:true});
+  await dismissMenuNotices(page);
+  await page.locator('.dk-btn').click();
   await page.locator('.dk-gem-ic img').first().waitFor({state:'visible'});
   assert.equal(await page.locator('.dk-gem-ic img').count(),3);
   await page.locator('.dk-scr img').evaluateAll(async images=>{
