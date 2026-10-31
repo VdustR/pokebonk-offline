@@ -79,9 +79,14 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
       await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
       await page.keyboard.press('w');
       await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS'&&window.__pokebonkLocalApp.run?.state==='play');
-      await page.evaluate(()=>window.__pokebonkLocalApp.run?.openMap());
+      // Upstream can mangle private method names. Exercise the player's map
+      // shortcut and verify the visible map as well as native pointer release.
+      await page.keyboard.press('KeyM');
+      await page.locator('.bigmap').waitFor({state:'visible',timeout:5000});
       await page.waitForFunction(()=>document.pointerLockElement===null&&window.__pokebonkLocalApp.run?.state==='paused');
-      await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
+      await page.keyboard.press('KeyM');
+      await page.locator('.bigmap').waitFor({state:'hidden',timeout:5000});
+      await page.waitForFunction(()=>window.__pokebonkLocalApp.run?.state==='play');
       await page.keyboard.press('w');
       await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS');
       console.log(label,'pointer lock, camera movement, Escape, resume and map release passed');

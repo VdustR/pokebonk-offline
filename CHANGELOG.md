@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.8
+
+### Patch Changes
+
+- Verify map opening and closing through the player keyboard shortcut instead of a private upstream method that can be renamed during minification. Keep visible-map, pause, pointer-release, and resume checks in native CI.
+
 ## 0.0.7
 
 ### Patch Changes
