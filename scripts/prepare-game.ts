@@ -10,10 +10,14 @@ import {versionForBuild} from './upstream-version.ts';
 import {offlineVersion,sourceDigest} from './release-source.ts';
 import {readSnapshot,snapshotDirectory} from './upstream-snapshot.ts';
 import {patchNativeOriginGate} from './native-origin.ts';
+import {readResourceContract,assertReviewedInputs,assertRequiredResources,resourceContractDigest} from './resource-contract.ts';
 
 const output=path.resolve(process.argv[2]??'build/game');
 const snapshotRoot=process.argv[3]??snapshotDirectory;
 const {manifest,files}=await readSnapshot(snapshotRoot);
+const resourceContract=await readResourceContract();
+assertReviewedInputs(files,manifest.upstreamBuild,resourceContract);
+assertRequiredResources(new Set(files.keys()),resourceContract);
 const contents=(key:string)=>{const data=files.get(key);if(!data)throw new Error(`Missing snapshot resource: ${key}`);return data.toString();};
 const mainKey=one([...files.keys()].filter(key=>key.endsWith('.js')&&contents(key).includes(' as App}')),'snapshot application module');
 const configKey=one([...files.keys()].filter(key=>key.endsWith('.js')&&key!==mainKey&&contents(key).includes('slot-move')),'snapshot configuration module');
@@ -38,6 +42,7 @@ files.delete('manifest.webmanifest');
 files.set('index.html',Buffer.from(nativeHtml));
 for(const [key,data] of files)if(key.endsWith('.html'))files.set(key,Buffer.from(data.toString().replace(/((?:src|href)=["'])\/(?!\/)/g,'$1./').replace(/href=(["'])\.\/legal\1/g,'href=$1./legal.html$1')));
 files.set('version.json', Buffer.from(JSON.stringify({build:buildId,version})));
+files.set('resource-audit.json',Buffer.from(JSON.stringify({contractDigest:resourceContractDigest(resourceContract)})));
 files.set('offline-build.json', Buffer.from(JSON.stringify({upstreamBuild:buildId,upstreamVersion:version,offlineVersion:await offlineVersion(),sourceDigest:await sourceDigest(snapshotRoot),variant:'unlock-all',league:info.roster.length,lab:info.lab.length,items:info.items.length,achievements:info.quests.length,medals:info.biomes.filter(b=>Number.isFinite(b.size)).length*3,medalRank:info.medalRanks.length,statusIcons,reactionIcons,itemIcons,builder:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2)));
 await rm(output,{recursive:true,force:true});
 for (const [key,data] of files) { const target=path.join(output,key);await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data); }

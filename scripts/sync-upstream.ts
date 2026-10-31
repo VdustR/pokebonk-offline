@@ -12,6 +12,7 @@ import {inspectAnimatedSprites} from './sprite-assets.ts';
 import {requestUpstream} from './upstream-request.ts';
 import {versionForBuild} from './upstream-version.ts';
 import {writeSnapshot,snapshotDirectory} from './upstream-snapshot.ts';
+import {readResourceContract,assertReviewedInputs,assertRequiredResources} from './resource-contract.ts';
 
 import {record, text as textValue, finite, list, isRecord, objectArray} from '../types/data.ts';
 
@@ -108,6 +109,9 @@ const config = contents(configKey);
 const info = inspectGame(main, config);
 const version = versionForBuild(info.configTree,buildId);
 if (!version) throw new Error('Game/config build mismatch');
+const resourceContract=await readResourceContract();
+// Compare every input after collection too: data catalogs are fetched below.
+if(buildId!==resourceContract.upstreamBuild)throw new Error('Unreviewed upstream resource inputs: build changed; see docs/resource-completeness.md');
 const resourceVersion = (key: string) => {
   const relative = key.replace(/^assets\//, '');
   const parts = relative.split('/');
@@ -210,7 +214,10 @@ for (const type of new Set(pokemon.flatMap(mon=>mon.types))) {
 for (const rank of ['bronze','silver','gold','champion','master','legend','elite','top10','top25','top50','top100']) add(`assets/ui/ranks/${rank}.png`, true);
 for (const name of ['ball','freeball','cursedball','unown','boss','portal','shrine','challenge','cursed','cage','rock','shroom','tower','comet','candle','escalera']) add(`assets/ui/icons/map-${name}.png`, true);
 console.log(`Downloading ${assets.size} catalog assets`);
+for(const key of resourceContract.required)if(!files.has(key))add(key);
 await collect();
+assertReviewedInputs(files,buildId,resourceContract);
+assertRequiredResources(new Set(files.keys()),resourceContract);
 const bytes = [...files.values()].reduce((sum, value) => sum + value.length, 0);
 if (bytes > 1024 * 1024 * 1024) throw new Error('Payload exceeds 1 GiB budget');
 const manifest=await writeSnapshot(output,files,buildId,version,missing);

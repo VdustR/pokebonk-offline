@@ -14240,6 +14240,26 @@
       "sha256": "d91835a076d0ff9e67d7449e17ee83951d373fac389111595660944c9b7bbd6d"
     },
     {
+      "name": "assets/ui/desktop/cave.webp",
+      "bytes": 483192,
+      "sha256": "57e02db82d8ae9842d537e19c9e276f1f52cc7b76a4109b4ab34a2001ef65cc9"
+    },
+    {
+      "name": "assets/ui/desktop/coast.webp",
+      "bytes": 419542,
+      "sha256": "978820655f6ed8c882b068f7fb4b6bd8a36d2b6349e0cdada5ea8e655e3b846c"
+    },
+    {
+      "name": "assets/ui/desktop/desert.webp",
+      "bytes": 366138,
+      "sha256": "4a832d2ddb5e83f3ff75382a478a1966fc958fabe6a12407ee9ad59669550187"
+    },
+    {
+      "name": "assets/ui/desktop/forest.webp",
+      "bytes": 459322,
+      "sha256": "00532cea4c78a826add03e198f8a1a63dcab4b5086746a4500532ccdf2ae011a"
+    },
+    {
       "name": "assets/ui/events/tower-banner.jpg",
       "bytes": 217384,
       "sha256": "c30c0d0e7c1f6c59724529854d1b83ce00cee47eb9211c10bcc80dcc468721df"
@@ -14520,6 +14540,11 @@
       "sha256": "d5db2829864aa1de3c3a263e8bab2d580ecd2a89485726ee98169c656944132e"
     },
     {
+      "name": "assets/ui/icons/handheld.png",
+      "bytes": 4798,
+      "sha256": "3853d2f38f1bea4d2f0a4bbe58e8147c9de8e2d8e3b0a328035adfcd8c93f48f"
+    },
+    {
       "name": "assets/ui/icons/idea.png",
       "bytes": 5775,
       "sha256": "38c5df6fb972a7334ebc5b93fc2f857fecc15bc8cdd97c1cfd75c188e4abb265"
@@ -14533,6 +14558,11 @@
       "name": "assets/ui/icons/jump.png",
       "bytes": 7029,
       "sha256": "69d2406c782525a1bb9a497ecf15d5932daefb0bb936490a9adb82b38670321f"
+    },
+    {
+      "name": "assets/ui/icons/laptop.png",
+      "bytes": 6913,
+      "sha256": "756ec6cc25e87034da257d6db725e460db5b3d84d21eb43473369f1c59d690a7"
     },
     {
       "name": "assets/ui/icons/leave.png",
@@ -14683,6 +14713,11 @@
       "name": "assets/ui/icons/pause.png",
       "bytes": 6114,
       "sha256": "dac1213b6813f67d7d09101b0e802d963bc3d99bcd15d742a721761949f23353"
+    },
+    {
+      "name": "assets/ui/icons/pc-tower.png",
+      "bytes": 6499,
+      "sha256": "d8575c7b1760a6ba4f9b515ec5e666599e457d91378f2f746304153caeaaa103"
     },
     {
       "name": "assets/ui/icons/pin.png",
@@ -15477,5 +15512,5 @@
     "assets/ui/ranks/legend.png",
     "assets/ui/ranks/silver.png"
   ],
-  "digest": "24f34ececcfc9650ee853f40a28352d039e51624649526987aa7575e816e8280"
+  "digest": "3c4d2cd85057f14f90549f9224af911d25144c6aa51d795e520caf4d22e56622"
 }

@@ -1,11 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {execFileSync} from 'node:child_process';
 import {mkdtemp,writeFile,mkdir,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {inspectIconCatalogs} from '../scripts/catalog-icons.ts';
+import {verifyGame} from '../scripts/verify-game.ts';
+import {parseResourceContract,resourceContractDigest} from '../scripts/resource-contract.ts';
 
 const config=`const reactions=['gg','love'];const marker='slot-move';export {reactions as reactionExport};`
  +`const upgrades=[{key:'vitamin',stat:'maxHp',per:1,icon:'enigma-berry'}];const held=[{key:'poke-ball',mods:[]}];const shop=[{key:'poke-ball',price:1}];`
@@ -38,9 +39,10 @@ test('payload verification rejects a catalog omission despite a consistent manif
   const root=await mkdtemp(path.join(os.tmpdir(),'pokebonk-icon-catalog-'));
   const png=Buffer.from([137,80,78,71,13,10,26,10]);
   const metadata={upstreamBuild:'fixture',upstreamVersion:'1.0.0',offlineVersion:'0.0.1',sourceDigest:'a'.repeat(64),variant:'unlock-all',league:1,lab:1,items:1,achievements:1,medals:1,medalRank:1,statusIcons:['assets/ui/icons/st-poison.png'],reactionIcons:['assets/ui/icons/r-gg.png','assets/ui/icons/r-love.png'],itemIcons:['assets/items/enigma-berry.png','assets/items/poke-ball.png'],builder:'fixture'};
+  const contract=parseResourceContract({schemaVersion:1,upstreamBuild:'fixture',inputs:[{name:'main.js',sha256:createHash('sha256').update(main).digest('hex')}],required:['main.js']});
   try {
     const write=async(omit:boolean,invalid:boolean,target='assets/ui/icons/r-love.png')=>{
-      const entries=new Map<string,Buffer>([['data/sprites.json',Buffer.from('{"249":{"anims":{}}}')],['assets/pmd/249.png',png],['main.js',Buffer.from(main)],['config.js',Buffer.from(config)],['offline-build.json',Buffer.from(JSON.stringify(metadata))],
+      const entries=new Map<string,Buffer>([['resource-audit.json',Buffer.from(JSON.stringify({contractDigest:resourceContractDigest(contract)}))],['data/sprites.json',Buffer.from('{"249":{"anims":{}}}')],['assets/pmd/249.png',png],['main.js',Buffer.from(main)],['config.js',Buffer.from(config)],['offline-build.json',Buffer.from(JSON.stringify(metadata))],
         ['assets/ui/icons/news.png',png],['assets/ui/icons/level.png',png],['assets/ui/icons/check.png',png],['assets/ui/icons/st-poison.png',png],['assets/ui/icons/r-gg.png',png],['data/items.json',Buffer.from('{}')],['assets/items/poke-ball.png',png],
         ['assets/ui/treasures/bg-fire.png',png],['assets/ui/icons/mut-glass.png',png],['assets/ui/frames/mut-glass.png',png],['assets/ui/banners/mut-glass.jpg',Buffer.from([255,216,255])],
         ['assets/ui/icons/r-love.png',png],['assets/items/enigma-berry.png',png]]);
@@ -50,20 +52,20 @@ test('payload verification rejects a catalog omission despite a consistent manif
       for(const[name,bytes]of entries){await mkdir(path.dirname(path.join(root,name)),{recursive:true});await writeFile(path.join(root,name),bytes);}
       await writeFile(path.join(root,'asset-manifest.json'),JSON.stringify({files:[...entries].map(([name,bytes])=>({name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}))}));
     };
-    const verify=(expectedBuild='fixture')=>execFileSync(process.execPath,['scripts/verify-game.ts',root],{encoding:'utf8',stdio:'pipe',env:{...process.env,EXPECTED_BUILD:expectedBuild}});
-    await write(false,false);assert.match(verify(),/Verified 18 payload hashes/);
-    assert.throws(()=>verify('another-build'),/Upstream changed during collection/);
-    await write(true,false,'assets/ui/treasures/bg-fire.png');assert.throws(verify,/Missing catalog icon: assets\/ui\/treasures\/bg-fire.png/);
-    await write(false,true,'assets/ui/treasures/bg-fire.png');assert.throws(verify,/Invalid catalog PNG: assets\/ui\/treasures\/bg-fire.png/);
-    await write(true,false,'assets/ui/icons/level.png');assert.throws(verify,/Missing catalog icon: assets\/ui\/icons\/level.png/);
-    await write(false,true,'assets/ui/icons/level.png');assert.throws(verify,/Invalid catalog PNG: assets\/ui\/icons\/level.png/);
-    await write(true,false);assert.throws(verify,/Missing catalog icon: assets\/ui\/icons\/r-love.png/);
-    await write(false,true);assert.throws(verify,/Invalid catalog PNG: assets\/ui\/icons\/r-love.png/);
-    await write(true,false,'assets/items/enigma-berry.png');assert.throws(verify,/Missing catalog icon: assets\/items\/enigma-berry.png/);
-    await write(false,true,'assets/items/enigma-berry.png');assert.throws(verify,/Invalid catalog PNG: assets\/items\/enigma-berry.png/);
-    await write(true,false,'assets/pmd/249.png');assert.throws(verify,/Missing catalog icon: assets\/pmd\/249.png/);
-    await write(false,true,'assets/pmd/249.png');assert.throws(verify,/Invalid catalog PNG: assets\/pmd\/249.png/);
-    await write(true,false,'assets/ui/banners/mut-glass.jpg');assert.throws(verify,/Missing mutation asset: assets\/ui\/banners\/mut-glass.jpg/);
-    await write(false,true,'assets/ui/banners/mut-glass.jpg');assert.throws(verify,/Invalid mutation image: assets\/ui\/banners\/mut-glass.jpg/);
+    const verify=(expectedBuild='fixture')=>verifyGame(root,contract,expectedBuild);
+    await write(false,false);assert.match(await verify(),/Verified 19 payload hashes/);
+    await assert.rejects(()=>verify('another-build'),/Upstream changed during collection/);
+    await write(true,false,'assets/ui/treasures/bg-fire.png');await assert.rejects(verify,/Missing catalog icon: assets\/ui\/treasures\/bg-fire.png/);
+    await write(false,true,'assets/ui/treasures/bg-fire.png');await assert.rejects(verify,/Invalid resource image: assets\/ui\/treasures\/bg-fire.png/);
+    await write(true,false,'assets/ui/icons/level.png');await assert.rejects(verify,/Missing catalog icon: assets\/ui\/icons\/level.png/);
+    await write(false,true,'assets/ui/icons/level.png');await assert.rejects(verify,/Invalid resource image: assets\/ui\/icons\/level.png/);
+    await write(true,false);await assert.rejects(verify,/Missing catalog icon: assets\/ui\/icons\/r-love.png/);
+    await write(false,true);await assert.rejects(verify,/Invalid resource image: assets\/ui\/icons\/r-love.png/);
+    await write(true,false,'assets/items/enigma-berry.png');await assert.rejects(verify,/Missing catalog icon: assets\/items\/enigma-berry.png/);
+    await write(false,true,'assets/items/enigma-berry.png');await assert.rejects(verify,/Invalid resource image: assets\/items\/enigma-berry.png/);
+    await write(true,false,'assets/pmd/249.png');await assert.rejects(verify,/Missing catalog icon: assets\/pmd\/249.png/);
+    await write(false,true,'assets/pmd/249.png');await assert.rejects(verify,/Invalid resource image: assets\/pmd\/249.png/);
+    await write(true,false,'assets/ui/banners/mut-glass.jpg');await assert.rejects(verify,/Missing mutation asset: assets\/ui\/banners\/mut-glass.jpg/);
+    await write(false,true,'assets/ui/banners/mut-glass.jpg');await assert.rejects(verify,/Invalid mutation image: assets\/ui\/banners\/mut-glass.jpg/);
   } finally {await rm(root,{recursive:true,force:true});}
 });

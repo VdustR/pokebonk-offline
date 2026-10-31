@@ -5,7 +5,7 @@ import {readFile,mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {checkGame} from './game-checks.ts';
+import {checkGame,dismissMenuNotices} from './game-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
 const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-e2e-'));
@@ -37,6 +37,29 @@ try {
   page.on('request',r=>{if(/^(https?|wss?):/.test(r.url()))external.push(r.url());});
   await app.evaluate(({app,BrowserWindow})=>{app.focus({steal:true});BrowserWindow.getAllWindows()[0]?.focus();});
   await page.waitForFunction(()=>document.hasFocus());
+  await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
+  await dismissMenuNotices(page);
+  await page.locator('.dk-btn').click();
+  await page.locator('.dk-gem-ic img').first().waitFor({state:'visible'});
+  assert.equal(await page.locator('.dk-gem-ic img').count(),3);
+  await page.locator('.dk-scr img').evaluateAll(async images=>{
+    await Promise.all(images.map(async image=>{
+      if(!(image instanceof HTMLImageElement))throw new Error('Invalid desktop page image');
+      await image.decode();
+      if(!image.naturalWidth)throw new Error('Undecoded desktop page image: '+image.src);
+    }));
+  });
+  assert.equal(await page.locator('.dk-bg').count(),4);
+  await page.locator('.dk-bg').evaluateAll(async backgrounds=>{
+    await Promise.all(backgrounds.map(async element=>{
+      const url=/^url\(["']?(.*?)["']?\)$/.exec(getComputedStyle(element).backgroundImage)?.[1];
+      if(!url)throw new Error('Missing desktop CSS background');
+      const image=new Image();image.src=url;await image.decode();
+      if(!image.naturalWidth)throw new Error('Undecoded desktop CSS background: '+url);
+    }));
+  });
+  await page.screenshot({path:'evidence/electron-desktop-page.png'});
+  await page.keyboard.press('Escape');
   await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true});
   assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   const gameRequests=[...external];
