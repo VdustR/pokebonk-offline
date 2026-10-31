@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.13
+
+### Patch Changes
+
+- Restore desktop platform icons and CSS backgrounds. Require an independent reviewed resource baseline before preparing releases, and hold upstream changes for dependency review.
+
 ## 0.0.12
 
 ### Patch Changes
