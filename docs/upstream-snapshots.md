@@ -48,3 +48,21 @@ The native fullscreen smoke check installs boot observers before reloading. If t
 On macOS, an actual process sandbox denying network access made the previous downloader fail and allowed the new offline preparation to generate and verify all 3,022 payload files. A portable fetch-denial regression checks ordinary preparation and planning, and a failed-sync regression retains its previous candidate. Tests also reject corrupt bytes, duplicate/traversal paths, symlinks, mismatched identities and a candidate changed after validation. A Git probe verifies byte preservation even with automatic CRLF conversion enabled.
 
 This proves the checked snapshot and known asset families, not every future upstream resource scheme or physical device. The scheduled workflow's live no-op/update behavior and the final published assets require separate GitHub readback.
+
+### Native map input compatibility
+
+Upstream 0.8.83 (`mvv70wso`) mangles the run's private `openMap` method. The
+[failed candidate validation](https://github.com/VdustR/pokebonk-offline/actions/runs/41139366935)
+reached gameplay without renderer errors or missing resources, then failed when
+the smoke test called that method directly. The same candidate reproduced the
+failure locally; opening and closing the map with `KeyM` passed, and restoring
+the direct call reproduced the failure again.
+
+The shared native gameplay check now uses the player's map shortcut through
+[Playwright keyboard input](https://playwright.dev/docs/api/class-keyboard#keyboard-press).
+It requires the visible `.bigmap`, paused gameplay and released pointer lock,
+then requires the map to close, gameplay to resume and pointer lock to return.
+This also works with the captured 0.8.80 input handler, which uses the same
+shortcut. It avoids adding a production alias for a minified private method.
+Unknown future input or DOM changes still fail validation before promotion;
+this does not guarantee compatibility with arbitrary future upstream builds.
