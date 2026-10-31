@@ -6,6 +6,12 @@
 
 - Complete every treasure collection and grant its cosmetics on new and existing local saves. Bundle and verify all treasure backgrounds.
 
+## 0.0.10
+
+### Patch Changes
+
+- Bundle and verify every release-note category icon, including improvements and events.
+
 ## 0.0.9
 
 ### Patch Changes
