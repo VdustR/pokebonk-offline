@@ -14435,6 +14435,11 @@
       "sha256": "6e41e88fd4637ece408811e5d79d9e5e9bb9e2a13df678a4da81a76358eb3b64"
     },
     {
+      "name": "assets/ui/icons/calabaza.png",
+      "bytes": 7536,
+      "sha256": "dd217782e5339d5518d2120fbe1c73b282f477aaf144c5b87c7a17b5c3a42954"
+    },
+    {
       "name": "assets/ui/icons/champion.png",
       "bytes": 8348,
       "sha256": "57eac90acd330177ffab76513a6b4541b238fe7826a4c80c07c070c5e8245d12"
@@ -14533,6 +14538,11 @@
       "name": "assets/ui/icons/leave.png",
       "bytes": 5834,
       "sha256": "f6f0ea869f941b356774a151cf03078a7c8861413b609e49aee778408d47032f"
+    },
+    {
+      "name": "assets/ui/icons/level.png",
+      "bytes": 6992,
+      "sha256": "5d76ac8e0dec203754b462259aa6c3482cc511b0d0dd02960c807c06c9b26d87"
     },
     {
       "name": "assets/ui/icons/lock.png",
@@ -14908,6 +14918,21 @@
       "name": "assets/ui/ranks/top50.png",
       "bytes": 10852,
       "sha256": "ba56042e3638cf0106086268adad7fe2fd5cf6fca61e4ec159999091901fd07b"
+    },
+    {
+      "name": "assets/ui/treasures/bg-fire.png",
+      "bytes": 451334,
+      "sha256": "823e3b67175f25da94360a5f79f7ed279c3ea77b902c5d3997f77f6fd7ea695c"
+    },
+    {
+      "name": "assets/ui/treasures/bg-grass.png",
+      "bytes": 509480,
+      "sha256": "18f077443707e3f06544584097b7615bf09d973c56bad0afbbdee89804d4de55"
+    },
+    {
+      "name": "assets/ui/treasures/bg-water.png",
+      "bytes": 470544,
+      "sha256": "8dceec340a445678268452cdfa2580ad8abed930f366b3baafa7c864f5d04845"
     },
     {
       "name": "assets/ui/types/bug.png",
@@ -15452,5 +15477,5 @@
     "assets/ui/ranks/legend.png",
     "assets/ui/ranks/silver.png"
   ],
-  "digest": "4339ebd482cbaecde06e52b82dc2ad85a20060969576b321c0756cb420eeaacd"
+  "digest": "24f34ececcfc9650ee853f40a28352d039e51624649526987aa7575e816e8280"
 }

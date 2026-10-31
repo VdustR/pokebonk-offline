@@ -1,8 +1,10 @@
+import {treasureAssetPaths} from './treasure-catalog.ts';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { ast, nodes, nodesOf, literal, maybeName, nameOf, requireNode } from './source.ts';
 import { inspectGame } from './patch-game.ts';
+import {inspectReleaseIcons} from './release-icons.ts';
 import { inspectIconCatalogs } from './catalog-icons.ts';
 import {inspectItemIcons} from './item-icons.ts';
 import {inspectMutationAssets} from './mutation-assets.ts';
@@ -151,6 +153,7 @@ for(const item of Object.values(itemData))if(isRecord(item)&&item['icon']) {
 }
 for(const key of itemIcons)add(key);
 for(const key of inspectMutationAssets(config))add(key);
+for(const key of treasureAssetPaths(config))add(key);
 for (const region of Object.keys(info.versions).filter(key => key.startsWith('env/'))) {
   for (const name of region === 'env/common' ? ['atlas.json','atlas.png'] : ['atlas.json','atlas.png','ground.png','cliff.png','path.png']) add(`assets/${region}/${name}`);
 }
@@ -174,7 +177,7 @@ for (const value of Object.values(info.values)) if (objectArray(value)) for (con
   if (typeof entry['style'] === 'string' && entry['style']) add(`assets/ui/frames/look-${entry['style']}.png`, true);
 }
 const {iconFunction,statusIcons,reactionIcons}=inspectIconCatalogs(main,config);
-for(const key of [...statusIcons,...reactionIcons])add(key);
+for(const key of [...statusIcons,...reactionIcons,...inspectReleaseIcons(main)])add(key);
 for (const tree of allTrees) {
   for (const call of nodesOf(tree, 'CallExpression')) {
     const method = call.callee.type === 'MemberExpression' ? maybeName(call.callee.property) : maybeName(call.callee);

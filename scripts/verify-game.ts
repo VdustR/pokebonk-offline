@@ -1,3 +1,5 @@
+import {inspectReleaseIcons} from './release-icons.ts';
+import {treasureAssetPaths} from './treasure-catalog.ts';
 import {parseMetadata,parseManifest} from '../types/metadata.ts';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -29,7 +31,7 @@ for(const name of inspectMutationAssets(configs[0].source)) {
  if(!bytes.subarray(0,signature.length).equals(signature))throw new Error(`Invalid mutation image: ${name}`);
 }
 if(JSON.stringify(meta.itemIcons)!==JSON.stringify(itemIcons))throw new Error('Item icon metadata does not match catalogs');
-for(const name of [...statusIcons,...reactionIcons,...itemIcons,...spriteAssets]) {
+for(const name of [...statusIcons,...reactionIcons,...itemIcons,...spriteAssets,...treasureAssetPaths(configs[0].source),...inspectReleaseIcons(mains[0].source)]) {
  if(!names.has(name))throw new Error(`Missing catalog icon: ${name}`);
  const bytes=await readFile(path.join(root,name));
  if(!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))throw new Error(`Invalid catalog PNG: ${name}`);
