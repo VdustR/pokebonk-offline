@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.9
+
+### Patch Changes
+
+- Upgrade pinned artifact upload and download Actions to Node.js 24 releases, preserving archived transfers and extraction paths while rejecting download digest mismatches by default.
+
 ## 0.0.8
 
 ### Patch Changes
