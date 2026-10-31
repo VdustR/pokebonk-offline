@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {checkGame,dismissMenuNotices} from './game-checks.ts';
+import {checkAppearanceAssets} from './appearance-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
 const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-e2e-'));
@@ -60,6 +61,7 @@ try {
   });
   await page.screenshot({path:'evidence/electron-desktop-page.png'});
   await page.keyboard.press('Escape');
+  await checkAppearanceAssets(page);
   await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true});
   assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   const gameRequests=[...external];

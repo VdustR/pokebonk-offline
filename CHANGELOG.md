@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.14
+
+### Patch Changes
+
+- Bundle all missing appearance-picker frames and require them in the independent resource baseline. Verify every appearance tab, including all type and Pokemon achievement frames, in native acceptance.
+
 ## 0.0.13
 
 ### Patch Changes
