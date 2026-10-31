@@ -53,6 +53,7 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   await page.getByRole('button',{name:'關閉',exact:true}).click();
   const profile=await page.evaluate(()=>window.__pokebonkLocalApp.meta.profile);
   assert.equal(profile.league.length,metadata.league);
+  assert.ok(profile.league.every(id=>(profile.wins[id]??0)===7));
   assert.equal(Object.keys(profile.lab).length,metadata.lab);
   assert.equal(profile.itemsOwned.length,metadata.items);
   assert.equal(profile.stardust,1e9);
@@ -80,6 +81,14 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   assert.equal(await page.evaluate(()=>localStorage.getItem('native-proof')),'saved');
   assert.equal(await page.evaluate(()=>Object.keys(window.__pokebonkLocalApp.meta.profile.quests).length),metadata.achievements);
   await dismissMenuNotices(page);
+  await page.getByRole('button',{name:/^開始遊戲/}).click();
+  await page.locator('.ls-tile').first().waitFor({state:'visible'});
+  assert.equal(await page.locator('.ls-tile').count(),metadata.league);
+  assert.ok((await page.locator('.ls-tile').evaluateAll(tiles=>tiles.map(tile=>tile.querySelectorAll('.ls-wins i').length))).every(count=>count===3));
+  await page.getByRole('button',{name:'超夢',exact:true}).click();
+  assert.equal(await page.locator('.ls-won').count(),3);
+  assert.equal(await page.locator('.ls-won.on').count(),3);
+  await page.evaluate(()=>window.__pokebonkLocalApp.toMenu());
   const runs=[];
   if(gameplay)for(const config of [
     {species:4,biome:'forest',tier:0},
