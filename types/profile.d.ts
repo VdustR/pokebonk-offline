@@ -18,6 +18,7 @@ export interface Profile extends Record<string, unknown> {
   medals: Record<string, number>;
   quests: Record<string, number>;
   counters: Record<string, number>;
+  wins: Record<string, number>;
   cosmetics: string[];
   itemsOff: string[];
   itemsOwned: string[];

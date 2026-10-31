@@ -42,6 +42,8 @@ class LocalSandboxBackend implements LocalBackendContract {
     profile.localSandbox = true;
     profile.starter = profile.starter || 4;
     profile.league = __ROSTER__.map(member => member.id);
+    // The character screen uses bits 0, 1 and 2 for Normal, Hard and Nightmare.
+    for(const member of __ROSTER__)profile.wins[member.id]=(profile.wins[member.id]??0)|0b111;
     profile.unlocked = [...new Set(__ROSTER__.map(member => (__REGISTRY__.get(member.id).family || __REGISTRY__.root(member.id).id)))];
     profile.seen = __REGISTRY__.pokemon.map(mon => mon.id);
     profile.forms = [...profile.seen];
@@ -82,11 +84,13 @@ class LocalSandboxBackend implements LocalBackendContract {
     const numbers = (key: string) => localList(merged[key] ?? [], localNumber);
     const strings = (key: string) => localList(merged[key] ?? [], localString);
     const counts = (key: string) => Object.fromEntries(Object.entries(localObject(merged[key] ?? {})).map(([k,v]) => [k,localNumber(v)]));
+    const wins=counts('wins');
+    if(Object.values(wins).some(mask=>!Number.isInteger(mask)||mask<0||mask>0x7fffffff))throw new Error('Invalid local profile victory mask');
     const profile: LocalProfile = {
       ...merged,
       settings: {...localObject(defaults['settings'] ?? {}), ...localObject(saved['settings'] ?? {})},
       league:numbers('league'),unlocked:numbers('unlocked'),seen:numbers('seen'),forms:numbers('forms'),shinies:numbers('shinies'),classics:numbers('classics'),
-      research:counts('research'),lab:counts('lab'),biomes:counts('biomes'),bag:counts('bag'),medals:counts('medals'),quests:counts('quests'),counters:counts('counters'),
+      research:counts('research'),lab:counts('lab'),biomes:counts('biomes'),bag:counts('bag'),medals:counts('medals'),quests:counts('quests'),counters:counts('counters'),wins,
       cosmetics:strings('cosmetics'),itemsOff:strings('itemsOff'),itemsOwned:strings('itemsOwned'),
       runs:localList(merged['runs'] ?? [], entry => {const run=localObject(entry);return {...run,id:localString(run['id'])};}),
       stardust:localNumber(merged['stardust'] ?? 0),totalStardust:localNumber(merged['totalStardust'] ?? 0),

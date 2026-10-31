@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.12
+
+### Patch Changes
+
+- Grant Normal, Hard, and Nightmare victory marks to every League character while retaining actual run history, counters, and records.
+
 ## 0.0.9
 
 ### Patch Changes
