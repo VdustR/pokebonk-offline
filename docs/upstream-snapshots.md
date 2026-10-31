@@ -4,7 +4,7 @@ Ordinary builds read only the verified snapshot committed at `vendor/pokebonk/`.
 
 ## Input contract
 
-`game/` contains pristine upstream files. `snapshot.json` records the schema, origin, upstream build/version, every path/size/SHA-256, missing optional candidates and an inventory digest. Preparation verifies this digest, duplicate/path boundaries, regular-file ownership and every file hash before patching. The upstream HTML and configuration must agree with the recorded identity. A malformed or incomplete snapshot stops the build.
+`game/` contains pristine upstream files. `snapshot.json` records the schema, origin, upstream build/version, every path/size/SHA-256, missing optional candidates and an inventory digest. Preparation verifies this digest, duplicate/path boundaries, regular-file ownership and every file hash before patching. The upstream HTML and configuration must agree with the recorded identity. A malformed snapshot stops the build. Its inventory alone does not establish resource completeness. The independent [resource contract](resource-completeness.md) requires the accepted resource paths and rejects changed upstream inputs until dependency review.
 
 Generated output receives the current builder commit, source digest, offline version and runtime patches. None of that builder-specific output is committed as upstream input. The builder fingerprint includes the snapshot manifest, making its file hashes part of release provenance. Git attributes disable newline conversion for snapshot bytes.
 
@@ -12,7 +12,7 @@ The initial snapshot is upstream 0.8.78, build `mvtnhtpk`: 3,021 raw files, incl
 
 ## Workflow ownership
 
-1. **Acquire:** Every six hours, a read-only job checks the upstream identity. An unchanged build does nothing. A changed build is collected into an isolated candidate, with per-build download caches and bounded body-aware retries. Failure leaves the committed snapshot unchanged.
+1. **Acquire:** Every six hours, a read-only job checks the upstream identity. An unchanged build does nothing. A changed build stops at the resource-review gate until its independent contract is reviewed. Accepted inputs are collected into an isolated candidate, with per-build download caches and bounded body-aware retries. Failure leaves the committed snapshot unchanged.
 2. **Validate:** The reusable build workflow prepares that exact candidate with fetch disabled, verifies all payload hashes/catalogs, and runs the same native and platform checks as ordinary CI. Candidate builds cannot publish releases or receive Android signing secrets.
 3. **Commit:** A separate writer downloads the candidate and compares it with the digest returned by validation. It processes bytes/JSON only; it never evaluates upstream modules or installs dependencies. It commits only the vendored snapshot and uses a normal push to `main`. Concurrent main updates or branch protection cause the push to fail instead of overwriting work.
 4. **Release:** After the snapshot commit, the writer explicitly dispatches the ordinary release workflow. The resulting build checks out a coherent Git commit and regenerates all release provenance before publication. [GitHub documents why a token push needs an explicit workflow dispatch](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
@@ -29,7 +29,7 @@ node scripts/verify-game.ts
 
 These steps use the committed game input. The toolchain and native packaging dependencies still come from their normal registries when they are not installed.
 
-To stage an upstream update:
+After completing the [resource dependency review](resource-completeness.md#reviewing-an-upstream-update), stage an upstream update:
 
 ```sh
 pnpm sync:upstream
