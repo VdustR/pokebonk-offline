@@ -27,6 +27,23 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
   await page.getByRole('button',{name:/^成就 /}).waitFor({state:'visible',timeout:120000});
   await dismissMenuNotices(page);
+  await page.getByRole('button',{name:'寶藏',exact:true}).click();
+  const treasureTabs=page.locator('.tz-tab');
+  await treasureTabs.first().waitFor({state:'visible'});
+  assert.equal(await treasureTabs.count(),3);
+  assert.equal(await page.locator('.tz-tab.done').count(),3);
+  for(let index=0;index<3;index++) {
+    await treasureTabs.nth(index).click();
+    assert.match(await treasureTabs.nth(index).innerText(),/10\/10/);
+    await page.locator('.tz-stage').evaluate(async stage=>{
+      const background=getComputedStyle(stage).getPropertyValue('--bg').trim();
+      const url=/^url\(["']?(.*?)["']?\)$/.exec(background)?.[1];
+      if(!url)throw new Error('Missing treasure background');
+      const image=new Image();image.src=url;await image.decode();
+      if(!image.naturalWidth)throw new Error('Undecoded treasure background');
+    });
+  }
+  await page.evaluate(()=>window.__pokebonkLocalApp.toMenu());
   // The fresh-version badge pulses continuously, so its bounds never settle.
   await page.locator('.logo-ver').click({force:true});
   await page.locator('.rel-cat-h img').first().waitFor({state:'visible'});
@@ -39,6 +56,8 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   assert.equal(Object.keys(profile.lab).length,metadata.lab);
   assert.equal(profile.itemsOwned.length,metadata.items);
   assert.equal(profile.stardust,1e9);
+  assert.equal(Object.values(profile.treasures).reduce((sum,wheel)=>sum+wheel.won.length,0),30);
+  for(const starter of [4,1,7])for(const tier of [3,4])assert.ok(profile.cosmetics.includes(`tlook:${starter}:${tier}`));
   assert.equal(Object.keys(profile.quests).length,metadata.achievements);
   assert.equal(Object.values(profile.medals).filter(rank=>rank===metadata.medalRank).length,metadata.medals);
   for(const period of ['daily','weekly'] as const)assert.deepEqual(profile[period].claimed,[1,1,1,1]);

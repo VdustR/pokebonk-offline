@@ -9,7 +9,7 @@ import {inspectIconCatalogs} from '../scripts/catalog-icons.ts';
 
 const config=`const reactions=['gg','love'];const marker='slot-move';export {reactions as reactionExport};`
  +`const upgrades=[{key:'vitamin',stat:'maxHp',per:1,icon:'enigma-berry'}];const held=[{key:'poke-ball',mods:[]}];const shop=[{key:'poke-ball',price:1}];`
- +`const mutations=[{id:'glass',icon:'mut-glass',tier:0,rules:[],prize:{frame:'Frame',banner:'Banner'}}];`;
+ +`const treasureWheels=[{id:'fire',starter:4,prizes:[{id:'grand',cosmetics:[]}]}];const mutations=[{id:'glass',icon:'mut-glass',tier:0,rules:[],prize:{frame:'Frame',banner:'Banner'}}];`;
 const main="import {reactionExport as reactionList} from './config.js';"
  +"function icon(id){return `ui/icons/${id}.png`;}"
  +"const releaseCategories=[{id:'new',icon:'news'},{id:'better',icon:'level'},{id:'fix',icon:'check'}];const statuses=[{id:'poison'}];for(const status of statuses)icon('st-'+status.id);"
@@ -42,7 +42,7 @@ test('payload verification rejects a catalog omission despite a consistent manif
     const write=async(omit:boolean,invalid:boolean,target='assets/ui/icons/r-love.png')=>{
       const entries=new Map<string,Buffer>([['data/sprites.json',Buffer.from('{"249":{"anims":{}}}')],['assets/pmd/249.png',png],['main.js',Buffer.from(main)],['config.js',Buffer.from(config)],['offline-build.json',Buffer.from(JSON.stringify(metadata))],
         ['assets/ui/icons/news.png',png],['assets/ui/icons/level.png',png],['assets/ui/icons/check.png',png],['assets/ui/icons/st-poison.png',png],['assets/ui/icons/r-gg.png',png],['data/items.json',Buffer.from('{}')],['assets/items/poke-ball.png',png],
-        ['assets/ui/icons/mut-glass.png',png],['assets/ui/frames/mut-glass.png',png],['assets/ui/banners/mut-glass.jpg',Buffer.from([255,216,255])],
+        ['assets/ui/treasures/bg-fire.png',png],['assets/ui/icons/mut-glass.png',png],['assets/ui/frames/mut-glass.png',png],['assets/ui/banners/mut-glass.jpg',Buffer.from([255,216,255])],
         ['assets/ui/icons/r-love.png',png],['assets/items/enigma-berry.png',png]]);
       const image=entries.get(target);assert.ok(image);
       entries.delete(target);
@@ -51,8 +51,10 @@ test('payload verification rejects a catalog omission despite a consistent manif
       await writeFile(path.join(root,'asset-manifest.json'),JSON.stringify({files:[...entries].map(([name,bytes])=>({name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}))}));
     };
     const verify=(expectedBuild='fixture')=>execFileSync(process.execPath,['scripts/verify-game.ts',root],{encoding:'utf8',stdio:'pipe',env:{...process.env,EXPECTED_BUILD:expectedBuild}});
-    await write(false,false);assert.match(verify(),/Verified 17 payload hashes/);
+    await write(false,false);assert.match(verify(),/Verified 18 payload hashes/);
     assert.throws(()=>verify('another-build'),/Upstream changed during collection/);
+    await write(true,false,'assets/ui/treasures/bg-fire.png');assert.throws(verify,/Missing catalog icon: assets\/ui\/treasures\/bg-fire.png/);
+    await write(false,true,'assets/ui/treasures/bg-fire.png');assert.throws(verify,/Invalid catalog PNG: assets\/ui\/treasures\/bg-fire.png/);
     await write(true,false,'assets/ui/icons/level.png');assert.throws(verify,/Missing catalog icon: assets\/ui\/icons\/level.png/);
     await write(false,true,'assets/ui/icons/level.png');assert.throws(verify,/Invalid catalog PNG: assets\/ui\/icons\/level.png/);
     await write(true,false);assert.throws(verify,/Missing catalog icon: assets\/ui\/icons\/r-love.png/);

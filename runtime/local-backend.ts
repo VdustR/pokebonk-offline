@@ -40,6 +40,10 @@ class LocalSandboxBackend implements LocalBackendContract {
 
   unlock(profile: LocalProfile): LocalReadyProfile {
     profile.localSandbox = true;
+    for(const wheel of __TREASURES__) {
+      const previous=profile.treasures[wheel.id];
+      profile.treasures[wheel.id]={...previous,won:[...new Set([...(previous?.won??[]),...wheel.prizes.map(prize=>prize.id)])]};
+    }
     profile.starter = profile.starter || 4;
     profile.league = __ROSTER__.map(member => member.id);
     profile.unlocked = [...new Set(__ROSTER__.map(member => (__REGISTRY__.get(member.id).family || __REGISTRY__.root(member.id).id)))];
@@ -67,7 +71,7 @@ class LocalSandboxBackend implements LocalBackendContract {
     profile.stardust = 1000000000;
     profile.totalStardust = Math.max(profile.totalStardust || 0, profile.stardust);
     profile.bag = { ...profile.bag, ...Object.fromEntries(__PREPARATIONS__.map(id=>[id,999])) };
-    profile.cosmetics = [...new Set([...profile.cosmetics, ...__COSMETICS__, ...achievementCosmetics, 'skin:spectral'])];
+    profile.cosmetics = [...new Set([...profile.cosmetics, ...__COSMETICS__, ...achievementCosmetics, ...__TREASURES__.flatMap(wheel=>wheel.prizes.flatMap(prize=>prize.cosmetics)), 'skin:spectral'])];
     return ready;
   }
   async persist(profile: unknown = this.profile) {
@@ -87,6 +91,10 @@ class LocalSandboxBackend implements LocalBackendContract {
       settings: {...localObject(defaults['settings'] ?? {}), ...localObject(saved['settings'] ?? {})},
       league:numbers('league'),unlocked:numbers('unlocked'),seen:numbers('seen'),forms:numbers('forms'),shinies:numbers('shinies'),classics:numbers('classics'),
       research:counts('research'),lab:counts('lab'),biomes:counts('biomes'),bag:counts('bag'),medals:counts('medals'),quests:counts('quests'),counters:counts('counters'),
+      treasures:Object.fromEntries(Object.entries(localObject(merged['treasures']??{})).map(([id,value])=>{
+        const wheel=localObject(value);
+        return [id,{...wheel,won:localList(wheel['won']??[],localString)}];
+      })),
       cosmetics:strings('cosmetics'),itemsOff:strings('itemsOff'),itemsOwned:strings('itemsOwned'),
       runs:localList(merged['runs'] ?? [], entry => {const run=localObject(entry);return {...run,id:localString(run['id'])};}),
       stardust:localNumber(merged['stardust'] ?? 0),totalStardust:localNumber(merged['totalStardust'] ?? 0),

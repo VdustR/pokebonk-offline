@@ -14920,6 +14920,21 @@
       "sha256": "ba56042e3638cf0106086268adad7fe2fd5cf6fca61e4ec159999091901fd07b"
     },
     {
+      "name": "assets/ui/treasures/bg-fire.png",
+      "bytes": 451334,
+      "sha256": "823e3b67175f25da94360a5f79f7ed279c3ea77b902c5d3997f77f6fd7ea695c"
+    },
+    {
+      "name": "assets/ui/treasures/bg-grass.png",
+      "bytes": 509480,
+      "sha256": "18f077443707e3f06544584097b7615bf09d973c56bad0afbbdee89804d4de55"
+    },
+    {
+      "name": "assets/ui/treasures/bg-water.png",
+      "bytes": 470544,
+      "sha256": "8dceec340a445678268452cdfa2580ad8abed930f366b3baafa7c864f5d04845"
+    },
+    {
       "name": "assets/ui/types/bug.png",
       "bytes": 7411,
       "sha256": "04094408a209c19f3efc54d045cc347068428f922ab873af1d982a9c94280e7a"
@@ -15462,5 +15477,5 @@
     "assets/ui/ranks/legend.png",
     "assets/ui/ranks/silver.png"
   ],
-  "digest": "9198964c855a426873c54034ca627e5863dfe5f8196d06ab722df559f9d0b1fa"
+  "digest": "24f34ececcfc9650ee853f40a28352d039e51624649526987aa7575e816e8280"
 }

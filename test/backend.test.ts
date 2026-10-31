@@ -14,7 +14,7 @@ function backend(storage = new Map<string,string>()): SandboxBackend {
   const context = { structuredClone,crypto:webcrypto,Date,document:{title:''},
     localStorage:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)},
     __PROFILE__:defaults,__SEASON__:()=>({season:2}),__ROSTER__:[{id:4},{id:150}],__REGISTRY__:{pokemon:[{id:4},{id:5},{id:150}],get:(id:number)=>({family:id}),root:(id:number)=>({id})},
-    __LAB__:[{id:'move',max:4}],__ITEMS__:[{key:'soda-pop'}],__BIOMES__:[{id:'forest',size:100},{id:'future'}],__EVENTS__:[],__MEDALS__:4,__REFRESH__:(profile:Profile)=>{for(const period of ['daily','weekly'] as const)profile[period]??={ids:['task1','task2','task3'],prog:[],claimed:[]};},__TASK__:()=>({goal:3}),__QUESTS__:[{id:"kills100",title:"Veteran"},{id:"look4",look:{member:4,n:1}}],__SCORE__:()=>0,__COSMETICS__:['frame:master'],__PREPARATIONS__:['rare-candy','honey'] };
+    __TREASURES__:[{id:'fire',starter:4,prizes:[{id:'candy',cosmetics:[]},{id:'grand',cosmetics:['tlook:4:4','frame:tr-fire-2']}]},{id:'water',starter:7,prizes:[{id:'look',cosmetics:['tlook:7:3']}]}],__LAB__:[{id:'move',max:4}],__ITEMS__:[{key:'soda-pop'}],__BIOMES__:[{id:'forest',size:100},{id:'future'}],__EVENTS__:[],__MEDALS__:4,__REFRESH__:(profile:Profile)=>{for(const period of ['daily','weekly'] as const)profile[period]??={ids:['task1','task2','task3'],prog:[],claimed:[]};},__TASK__:()=>({goal:3}),__QUESTS__:[{id:"kills100",title:"Veteran"},{id:"look4",look:{member:4,n:1}}],__SCORE__:()=>0,__COSMETICS__:['frame:master'],__PREPARATIONS__:['rare-candy','honey'] };
   const value: unknown = new vm.Script(template+'\n;createLocalSandboxBackend()').runInNewContext(context);
   const api=record(value);
   for (const method of ['loadProfile','savePrefs','chooseStarter','startRun','finishRun']) assert.equal(typeof api[method],'function');
@@ -26,6 +26,7 @@ test('new profile unlocks catalogs and reload preserves preferences and starter'
   const storage=new Map<string,string>(), b=backend(storage);
   const p=await b.loadProfile();
   assert.equal(p.medals['forest-2'],4);assert.equal(p.medals['future-0'],undefined);assert.equal(p.daily.prog[0],3);assert.equal(p.daily.claimed.join(','),'1,1,1,1');assert.equal(p.weekly.claimed.join(','),'1,1,1,1');
+  assert.deepEqual(JSON.parse(JSON.stringify(p.treasures)),{fire:{won:['candy','grand']},water:{won:['look']}});
   assert.equal(p.stardust,1e9);assert.equal(p.league.length,2);assert.equal(p.lab['move'],4);assert.equal(p.itemsOwned[0],'soda-pop');
   p.settings['audio']=0;await b.savePrefs(null,p);await b.chooseStarter(null,150);
   const reload=await backend(storage).loadProfile();assert.equal(reload.lastSpecies,150);assert.equal(reload.settings['audio'],0);
@@ -54,7 +55,7 @@ test('existing saves receive every achievement and cosmetic without fabricating 
 });
 
 test('structurally invalid saves reject without overwriting stored progress',async()=>{
-  for(const profile of [{counters:{kills:'seven'}},{settings:[]},{runs:[{id:42}]}]) {
+  for(const profile of [{counters:{kills:'seven'}},{settings:[]},{runs:[{id:42}]},{treasures:{fire:{won:[42]}}},{treasures:{fire:[]}}]) {
     const saved=JSON.stringify(profile),storage=new Map([['pokebonk.local.profile.v1',saved]]);
     await assert.rejects(backend(storage).loadProfile(),/Invalid local profile/);
     assert.equal(storage.get('pokebonk.local.profile.v1'),saved);
@@ -66,4 +67,16 @@ test('unrecognized upstream fields and equipped looks survive normalization',asy
   const p=await backend(storage).loadProfile();
   assert.deepEqual(p['futureField'],{keep:true});assert.equal(p['look'],'spectral');
   assert.equal(p.settings['quality'],'low');
+});
+
+test('treasure completion grants every prize once and preserves existing profile data',async()=>{
+  const saved={treasures:{fire:{won:['old-prize'],future:42},future:{won:['future-prize']}},cosmetics:['frame:custom'],counters:{wins:2},runs:[{id:'real-run'}],bonk:17,settings:{audio:0},lastSpecies:150,look:'classic'};
+  const storage=new Map([['pokebonk.local.profile.v1',JSON.stringify(saved)]]),b=backend(storage);
+  const p=await b.loadProfile();
+  assert.deepEqual(p['treasures'],{fire:{won:['old-prize','candy','grand'],future:42},future:{won:['future-prize']},water:{won:['look']}});
+  assert.ok(p.cosmetics.includes('tlook:4:4'));assert.ok(p.cosmetics.includes('frame:tr-fire-2'));assert.ok(p.cosmetics.includes('tlook:7:3'));
+  assert.equal(p.cosmetics.filter(id=>id==='tlook:4:4').length,1);
+  for(const key of ['counters','runs','bonk','lastSpecies','look'] as const)assert.deepEqual(p[key],saved[key]);
+  const before=JSON.parse(JSON.stringify(p));await b.savePrefs(null,p);
+  assert.deepEqual(JSON.parse(JSON.stringify(await backend(storage).loadProfile())),before);
 });

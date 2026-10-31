@@ -25,3 +25,5 @@ declare const __QUESTS__: {id:string;title?:string;look?:{member:number;n:number
 declare function __SCORE__(result:LocalRunResult): number;
 declare const __PREPARATIONS__: string[];
 declare const __COSMETICS__: string[];
+
+declare const __TREASURES__: {id:string;starter:number;prizes:{id:string;cosmetics:string[]}[]}[];

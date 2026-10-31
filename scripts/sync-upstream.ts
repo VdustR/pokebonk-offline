@@ -1,3 +1,4 @@
+import {treasureAssetPaths} from './treasure-catalog.ts';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -152,6 +153,7 @@ for(const item of Object.values(itemData))if(isRecord(item)&&item['icon']) {
 }
 for(const key of itemIcons)add(key);
 for(const key of inspectMutationAssets(config))add(key);
+for(const key of treasureAssetPaths(config))add(key);
 for (const region of Object.keys(info.versions).filter(key => key.startsWith('env/'))) {
   for (const name of region === 'env/common' ? ['atlas.json','atlas.png'] : ['atlas.json','atlas.png','ground.png','cliff.png','path.png']) add(`assets/${region}/${name}`);
 }

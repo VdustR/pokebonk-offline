@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.11
+
+### Patch Changes
+
+- Complete every treasure collection and grant its cosmetics on new and existing local saves. Bundle and verify all treasure backgrounds.
+
 ## 0.0.10
 
 ### Patch Changes

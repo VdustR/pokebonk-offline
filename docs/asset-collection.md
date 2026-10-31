@@ -89,3 +89,9 @@ The captured, unmodified upstream files now live in `vendor/pokebonk/game/`, wit
 The 0.8.83 release-note renderer reads category icons from an indirect table. The previous collector found literal icon calls but omitted `level.png` (improvements) and `calabaza.png` (events). A snapshot regression reproduced the missing category image; both versioned upstream URLs returned HTTP 200 with PNG bytes. The snapshot now includes the original images.
 
 `release-icons.ts` resolves the category table from its stable category IDs and requires each icon during acquisition and payload verification. Missing, ambiguous, duplicate, or unsafe records reject the build. The verifier fixture demonstrates missing and corrupt images failing even with internally consistent manifest hashes. Native acceptance opens the release notes and decodes their rendered category images; this supplements the full-table inventory check because one release may not display every category.
+
+## Treasure collections
+
+The 0.8.83 treasure screen uses one background per wheel: `assets/ui/treasures/bg-<wheel>.png`. Those constructed URLs were absent from the snapshot. `treasure-catalog.ts` now resolves all wheel IDs and prizes from the evaluated configuration, validates unique safe IDs and cosmetic tokens, and makes every background required during sync and verification. The pinned snapshot includes all three original PNGs, totaling about 1.4 MiB.
+
+Local profiles merge every catalog prize into `treasures[wheelId].won` and grant its cosmetic tokens. Preparation items retain the existing 999-per-item policy. Loading and saving are idempotent: no spin requests, Bonkoin deductions, extra run history, or repeated additive rewards occur. Unknown profile fields, wheel fields, and existing collection entries are retained; malformed collection structures reject without replacing the stored save. Native acceptance checks all three 10/10 tabs and decodes each background.

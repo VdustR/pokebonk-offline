@@ -1,3 +1,4 @@
+import {inspectTreasureCatalog} from './treasure-catalog.ts';
 import { ast, nodesOf, one, literal, edits, configContext, nameOf, maybeName, requireNode } from './source.ts';
 import {objectArray, record, text, finite, stringMap, isRecord} from '../types/data.ts';
 import type {AnyNode} from 'acorn';
@@ -88,6 +89,7 @@ export function patchGame(main: string,config: string,template: string) {
   const cosmetics=[...new Set(lists.flatMap(list=>list.map(entry=>entry['id'])).filter((id):id is string=>typeof id==='string'&&/^(tr|frame|title|sym|deco|skin):/.test(id)))];
   const preparations=one(lists.filter(value=>value.every(item=>item['id']&&item['desc'])&&value.some(item=>item['id']==='rare-candy')),'preparation catalog').map(item=>text(item['id']));
   shim=shim.replaceAll('__COSMETICS__',JSON.stringify(cosmetics)).replaceAll('__PREPARATIONS__',JSON.stringify(preparations));
+  if(shim.includes('__TREASURES__'))shim=shim.replaceAll('__TREASURES__',JSON.stringify(inspectTreasureCatalog(config)));
   if(/__[A-Z]+__/.test(shim))throw new Error('Unresolved backend template symbol');
   const boot=one(nodesOf(info.tree,'AwaitExpression',n=>n.argument.type==='CallExpression'&&n.argument.callee.type==='MemberExpression'&&maybeName(n.argument.callee.property)==='boot'&&n.argument.callee.object.type==='NewExpression'),'application boot');
   const instanceNode=requireNode(requireNode(boot.argument,'CallExpression').callee,'MemberExpression').object;
