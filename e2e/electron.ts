@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {checkGame,dismissMenuNotices} from './game-checks.ts';
 import {focusNativeInput} from './native-input-focus.ts';
 import {checkOfflineFriends} from './friends-checks.ts';
-import {checkRunSaves} from './run-save-checks.ts';
+import {checkRunSaves,checkCorruptRecovery} from './run-save-checks.ts';
 import {checkAppearanceAssets} from './appearance-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
@@ -70,15 +70,19 @@ try {
   await page.keyboard.press('Escape');
   await checkAppearanceAssets(page);
   await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true,focusPointerInput:async()=>{if(!app)throw new Error('Missing Electron application');await focusNativeInput(app);}});
-  page=await checkRunSaves(page,async()=>{
+  const restart=async(ready=true)=>{
     if(!app)throw Error('Missing native application');
     await app.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.destroy();});
     await app.close();app=await electron.launch(options);
     const next=await app.firstWindow();observe(next);
-    await next.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
-    await next.locator('.mm-nav').waitFor({state:'visible',timeout:30000});
+    if(ready){
+      await next.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
+      await next.locator('.mm-nav').waitFor({state:'visible',timeout:30000});
+    }
     return next;
-  },async()=>{if(!app)throw Error('Missing native application');await focusNativeInput(app);});
+  };
+  page=await checkRunSaves(page,()=>restart(),async()=>{if(!app)throw Error('Missing native application');await focusNativeInput(app);});
+  page=await checkCorruptRecovery(page,()=>restart(false));
   assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   const gameRequests=[...external];
   assert.equal(await page.evaluate(()=>fetch('https://example.com/').then(()=>false,()=>true)),true,'Network must be blocked');

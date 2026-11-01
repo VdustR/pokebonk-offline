@@ -50,3 +50,20 @@ export async function checkRunSaves(page:Page,restart:()=>Promise<Page>,focus:()
   assert.equal((await page.evaluate(()=>window.__pokebonkLocalApp.meta.profile)).runs.length,baseline.runs+2);
   return page;
 }
+
+export async function checkCorruptRecovery(page:Page,restart:()=>Promise<Page>) {
+  const before=await page.evaluate(()=>{
+    localStorage.setItem('pb.runauto.local-sandbox','{');
+    return Object.fromEntries(Object.keys(localStorage).map(key=>[key,localStorage.getItem(key)]));
+  });
+  page=await restart();
+  await page.getByRole('heading',{name:'無法載入本機遊戲資料',exact:true}).waitFor({timeout:15000});
+  await page.getByRole('button',{name:'重試',exact:true}).waitFor();
+  assert.match(await page.locator('body').innerText(),/原始資料已保留/);
+  assert.doesNotMatch(await page.locator('body').innerText(),/進度儲存在伺服器/);
+  assert.equal(await page.evaluate(()=>Boolean(window.__pokebonkLocalApp?.meta?.profile)),false);
+  assert.deepEqual(await page.evaluate(()=>Object.fromEntries(Object.keys(localStorage).map(key=>[key,localStorage.getItem(key)]))),before);
+  await page.screenshot({path:'evidence/electron-corrupt-recovery.png'});
+  console.log('Corrupt recovery blocks startup with truthful local copy and preserves all raw storage');
+  return page;
+}

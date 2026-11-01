@@ -53,3 +53,10 @@ or persisting normalization. A damaged or incompatible save therefore cannot be
 silently replaced by starting another run. Known durable settlements are
 reconciled during startup when their ticket remains readable, even if the stale save payload was damaged
 after settlement.
+
+The existing startup failure screen uses a local-data explanation for this
+backend, keeps its Retry action, and does not claim that progress is stored on
+a server. The HTTP backend retains the upstream connection message. Native
+acceptance injects a corrupt autosave on its disposable profile, restarts the
+process, checks this explanation and blocked gameplay, and compares every raw
+storage value.
