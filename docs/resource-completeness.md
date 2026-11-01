@@ -100,3 +100,18 @@ verification. Both index refresh and installation have two retries and 20-second
 connection/data timeouts; each workflow step has a six-minute total deadline.
 Any index error fails before package installation. This bounds and avoids the
 observed mirror-list path; it cannot guarantee external archive availability.
+
+### Generated portrait readiness
+
+The appearance renderer creates palette-derived portrait images hidden without
+a `src`, then assigns the generated PNG asynchronously. Calling `img.decode()`
+before that assignment rejects with `EncodingError` even though no resource
+is missing; see the [image decoding contract](https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/decode). Native acceptance waits for every portrait source to be assigned
+and visible before decoding; corrupt and missing image sources still fail.
+`e2e/appearance-readiness.ts` reproduces the pending-source failure in the real
+Electron shell, holds a fixture producer result for two seconds, and verifies
+both valid completion and permanent corrupt/missing-image rejection.
+The main release failure had no HTTP or network errors; its original generic
+decode exception did not record the specific image. This fixes a demonstrated
+readiness gap and adds URL diagnostics without claiming that every decoder
+error has this cause.
