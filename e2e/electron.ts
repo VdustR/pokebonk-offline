@@ -94,7 +94,7 @@ try {
     const page=pages[0];
     if(page) {
       await page.screenshot({path:'evidence/electron-failure.png'}).catch(()=>{});
-      await writeFile('evidence/electron-failure.json',JSON.stringify({errors,missing,external,url:page.url(),text:await page.locator('body').innerText().catch(()=>''),error:String(error)},null,2));
+      await writeFile('evidence/electron-failure.json',JSON.stringify({errors,missing,external,url:page.url(),runtime:await page.evaluate(()=>({visibility:document.visibilityState,focused:document.hasFocus(),savedDialogs:document.querySelectorAll('.sv-card').length,run:window.__pokebonkLocalApp?.run?{state:window.__pokebonkLocalApp.run.state,time:window.__pokebonkLocalApp.run.time}:null})).catch(()=>null),text:await page.locator('body').innerText().catch(()=>''),error:String(error)},null,2));
     }
   }
   throw error;

@@ -27,13 +27,19 @@ export async function checkRunSaves(page:Page,restart:()=>Promise<Page>,focus:()
       return {raw:localStorage.getItem(key),time:body.summary.time};
     },key);
     page=await restart();
+    // A restarted process has a new native focus target. Establish it before
+    // sending the recovery click, as for the initial gameplay input checks.
+    await focus();
     assert.equal(await page.evaluate(key=>localStorage.getItem(key),key),saved.raw,'Startup must preserve the saved blob');
     // This resumes a scene in the same document. Chromium's post-input
     // navigation epilogue can stall with the CI software-GPU notice behind it.
     // Wait for actual recovery below instead of an unrelated navigation.
     await page.locator('.sv-card').getByRole('button',{name:'繼續',exact:true}).click({noWaitAfter:true});
-    await page.locator('.sv-card').waitFor({state:'hidden',timeout:15000});
-    await page.waitForFunction(()=>{const run=window.__pokebonkLocalApp.run;return run&&(run.state==='play'||run.state==='paused');},null,{timeout:30000});
+    const restoreStarted=Date.now();
+    // Observe the owning document and simulation together. A locator-world
+    // checkpoint can remain pending while this native scene is already restored.
+    await page.waitForFunction(()=>{const run=window.__pokebonkLocalApp.run;return !document.querySelector('.sv-card')&&run&&(run.state==='play'||run.state==='paused');},null,{timeout:90000,polling:100});
+    console.log('Native',kind,'restored scene ready after',Date.now()-restoreStarted,'ms');
     await dismissMenuNotices(page);
     await focus();
     await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
