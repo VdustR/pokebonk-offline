@@ -90,6 +90,7 @@ jobs:
       - name: Verify native desktop behavior
         if: steps.identity.outputs.changed == 'true'
         run: |
+          xvfb-run -a node e2e/external-links.ts
           bash e2e/with-linux-desktop.sh pnpm repro:window-lifecycle
           bash e2e/with-linux-desktop.sh pnpm repro:fullscreen
           xvfb-run -a pnpm repro:pointer-lock
