@@ -1,5 +1,6 @@
 import type {Page} from 'playwright-core';
 import assert from 'node:assert/strict';
+import {dismissMenuNotices} from './game-checks.ts';
 
 // Both restarts terminate the actual native process and reopen its disposable
 // profile. A renderer reload cannot prove a saved run survives process loss.
@@ -27,8 +28,13 @@ export async function checkRunSaves(page:Page,restart:()=>Promise<Page>,focus:()
     },key);
     page=await restart();
     assert.equal(await page.evaluate(key=>localStorage.getItem(key),key),saved.raw,'Startup must preserve the saved blob');
-    await page.locator('.sv-card').getByRole('button',{name:'繼續',exact:true}).click();
+    // This resumes a scene in the same document. Chromium's post-input
+    // navigation epilogue can stall with the CI software-GPU notice behind it.
+    // Wait for actual recovery below instead of an unrelated navigation.
+    await page.locator('.sv-card').getByRole('button',{name:'繼續',exact:true}).click({noWaitAfter:true});
+    await page.locator('.sv-card').waitFor({state:'hidden',timeout:15000});
     await page.waitForFunction(()=>{const run=window.__pokebonkLocalApp.run;return run&&(run.state==='play'||run.state==='paused');},null,{timeout:30000});
+    await dismissMenuNotices(page);
     await focus();
     await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
     await page.waitForFunction(time=>(window.__pokebonkLocalApp.run?.time??0)>time+.5,saved.time,{timeout:30000});
