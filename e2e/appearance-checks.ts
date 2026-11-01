@@ -15,13 +15,7 @@ export async function checkAppearanceAssets(page:Page) {
       assert.equal(await page.locator('.lk-card .av-frame[src*="/mon-"]').count(),2);
       assert.equal(await page.locator('.lk-card .av-frame[src*="/top100.png"]').count(),1);
     }
-    await page.locator('.lk-card img').evaluateAll(async images=>{
-      await Promise.all(images.map(async image=>{
-        if(!(image instanceof HTMLImageElement))throw new Error('Invalid appearance image');
-        await image.decode();
-        if(!image.naturalWidth)throw new Error('Undecoded appearance image: '+image.src);
-      }));
-    });
+    await decodeAppearanceImages(page);
     await page.locator('.lk-bg-pic').evaluateAll(async backgrounds=>{
       await Promise.all(backgrounds.map(async element=>{
         const background=getComputedStyle(element).backgroundImage;
@@ -36,4 +30,20 @@ export async function checkAppearanceAssets(page:Page) {
   }
   await page.locator('.lk-card').getByRole('button',{name:'取消',exact:true}).click();
   await page.getByRole('button',{name:'Esc 返回',exact:true}).click();
+}
+
+export async function decodeAppearanceImages(page:Page) {
+  // Palette-generated portraits start hidden without src. decode() rejects that
+  // valid pending state, so wait for the producer to assign its image first.
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll('.lk-card img')).every(image=>
+    image instanceof HTMLImageElement && Boolean(image.getAttribute('src')) && getComputedStyle(image).visibility!=='hidden'
+  ),null,{timeout:30000});
+  await page.locator('.lk-card img').evaluateAll(async images=>{
+    await Promise.all(images.map(async image=>{
+      if(!(image instanceof HTMLImageElement))throw new Error('Invalid appearance image');
+      try {await image.decode();}
+      catch(error){throw new Error('Undecoded appearance image: '+image.src,{cause:error});}
+      if(!image.naturalWidth)throw new Error('Undecoded appearance image: '+image.src);
+    }));
+  });
 }
