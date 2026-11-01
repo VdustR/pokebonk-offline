@@ -1,3 +1,4 @@
+import {patchOfflineStorageError} from './offline-storage-error.ts';
 import {mkdir,readFile,writeFile,rm} from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -33,7 +34,7 @@ const missing=manifest.missingCandidates;
 const bytes=[...files.values()].reduce((sum,value)=>sum+value.length,0);
 const sha=(value:string|Buffer)=>createHash('sha256').update(value).digest('hex');
 const patched = patchGame(main, config, await readFile('dist/runtime/local-backend.js','utf8'));
-files.set(mainKey, Buffer.from(patchOfflineFriends(patchLiveRunAlias(patched.main))));
+files.set(mainKey, Buffer.from(patchOfflineStorageError(patchOfflineFriends(patchLiveRunAlias(patched.main)))));
 files.set(configKey, Buffer.from(patched.config));
 const entryKey=one([...files.keys()].filter(key=>key.endsWith('.js')&&html.includes(`src="./${key}"`)),'snapshot entry module');
 files.set(entryKey,Buffer.from(patchNativeOriginGate(contents(entryKey))));

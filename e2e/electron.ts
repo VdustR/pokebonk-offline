@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {checkGame,dismissMenuNotices} from './game-checks.ts';
 import {focusNativeInput} from './native-input-focus.ts';
 import {checkOfflineFriends} from './friends-checks.ts';
+import {checkRunSaves,checkCorruptRecovery} from './run-save-checks.ts';
 import {checkAppearanceAssets} from './appearance-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
@@ -21,7 +22,7 @@ let app: ElectronApplication | undefined;
 const errors: string[]=[],missing: {url:string;status:number}[]=[],external: string[]=[];
 try {
   app=await electron.launch(options);
-  const page=await app.firstWindow();
+  let page=await app.firstWindow();
   if(executablePath)assert.equal(await app.evaluate(({app})=>app.getVersion()),metadata.offlineVersion,'Packaged native version must match offline release');
   const isolation=await app.evaluate(({BrowserWindow})=>{
     const window=BrowserWindow.getAllWindows()[0];
@@ -35,9 +36,12 @@ try {
     return {sandbox:p['sandbox'],nodeIntegration:p['nodeIntegration'],contextIsolation:p['contextIsolation'],webSecurity:p['webSecurity']};
   });
   assert.deepEqual(isolation,{sandbox:true,nodeIntegration:false,contextIsolation:true,webSecurity:true});
+  const observe=(page:import('playwright-core').Page)=>{
   page.on('pageerror',e=>errors.push(e.message));
   page.on('response',r=>{if(r.status()>=400)missing.push({url:r.url(),status:r.status()});});
   page.on('request',r=>{if(/^(https?|wss?):/.test(r.url()))external.push(r.url());});
+  };
+  observe(page);
   await app.evaluate(({app,BrowserWindow})=>{app.focus({steal:true});BrowserWindow.getAllWindows()[0]?.focus();});
   await page.waitForFunction(()=>document.hasFocus());
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
@@ -66,6 +70,19 @@ try {
   await page.keyboard.press('Escape');
   await checkAppearanceAssets(page);
   await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true,focusPointerInput:async()=>{if(!app)throw new Error('Missing Electron application');await focusNativeInput(app);}});
+  const restart=async(ready=true)=>{
+    if(!app)throw Error('Missing native application');
+    await app.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.destroy();});
+    await app.close();app=await electron.launch(options);
+    const next=await app.firstWindow();observe(next);
+    if(ready){
+      await next.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
+      await next.locator('.mm-nav').waitFor({state:'visible',timeout:30000});
+    }
+    return next;
+  };
+  page=await checkRunSaves(page,()=>restart(),async()=>{if(!app)throw Error('Missing native application');await focusNativeInput(app);});
+  page=await checkCorruptRecovery(page,()=>restart(false));
   assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   const gameRequests=[...external];
   assert.equal(await page.evaluate(()=>fetch('https://example.com/').then(()=>false,()=>true)),true,'Network must be blocked');
@@ -77,7 +94,7 @@ try {
     const page=pages[0];
     if(page) {
       await page.screenshot({path:'evidence/electron-failure.png'}).catch(()=>{});
-      await writeFile('evidence/electron-failure.json',JSON.stringify({errors,missing,external,url:page.url(),text:await page.locator('body').innerText().catch(()=>''),error:String(error)},null,2));
+      await writeFile('evidence/electron-failure.json',JSON.stringify({errors,missing,external,url:page.url(),runtime:await page.evaluate(()=>({visibility:document.visibilityState,focused:document.hasFocus(),savedDialogs:document.querySelectorAll('.sv-card').length,run:window.__pokebonkLocalApp?.run?{state:window.__pokebonkLocalApp.run.state,time:window.__pokebonkLocalApp.run.time}:null})).catch(()=>null),text:await page.locator('body').innerText().catch(()=>''),error:String(error)},null,2));
     }
   }
   throw error;

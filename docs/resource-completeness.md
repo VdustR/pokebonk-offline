@@ -126,3 +126,27 @@ with the direct test call and showed clean gameplay through the normal Back
 button. This is distinct from missing assets. Acceptance now uses Back on menu
 screens and holds the selected preview mesh reference to verify that launch
 removes it from the rendered scene. Run settlement still uses the run-exit flow.
+
+## Reviewed 0.8.86 update
+
+The `mvwwqlzz` review compares the complete collected module/style graph with
+`mvv70wso`. All 15 game/localization data catalogs are byte-identical. The
+configuration's evaluated catalogs are unchanged; its differences are build,
+version and release history. The 71 calls into the asset/data URL factories
+retain the same normalized argument shapes and finite catalog domains.
+All 3003 binary assets match the prior snapshot byte for byte after versioned
+filename normalization. Eight stylesheets match after that normalization; the remaining
+stylesheet adds layout, touch-orientation and co-op vote rules without new
+resource URLs. Entry, preload, i18n loader and Three.js wiring remain unchanged
+after filename normalization. Language modules add save/recovery, touch and
+connection messages. The application adds autosave/recovery and transport/UI
+behavior, with no additional asset family in its changed literals or URL calls.
+
+The independent requirements retain the explicit desktop, appearance, sprite,
+item, mutation, icon, model and treasure paths, with versioned graph filenames
+updated together with the pristine snapshot. Existing catalog and missing-file
+controls remain mandatory. The PWA manifest remains excluded from the native
+payload, as preparation deliberately removes its link and file. These bounded
+source comparisons and native checks do not establish completeness for every
+remote social state or future build. See [local run recovery](local-run-recovery.md)
+for the new backend compatibility boundary.
