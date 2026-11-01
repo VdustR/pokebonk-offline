@@ -127,9 +127,10 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
       await page.keyboard.press('w');
       await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS');
       console.log(label,'pointer lock, camera movement, Escape, resume and map release passed');
-      // Wait for the game's periodic live checkpoint through its actual meta
-      // adapter; a missing minified binding must reject this acceptance path.
-      await page.waitForFunction(()=>localStorage.getItem('pokebonk.local.pending.v1')!==null,null,{timeout:45000});
+      // Invoke the real gameplay checkpoint, including its meta report adapter,
+      // without holding native pointer capture during a long timer wait.
+      await page.evaluate(()=>{const run=window.__pokebonkLocalApp.run;if(!run)throw new Error('Missing active run');run.checkpoint();});
+      await page.waitForFunction(()=>localStorage.getItem('pokebonk.local.pending.v1')!==null);
       const pending=record(JSON.parse(await page.evaluate(()=>localStorage.getItem('pokebonk.local.pending.v1')??'null')),'live checkpoint');
       assert.match(text(record(pending['ticket'])['id']),/^local-/);
       record(pending['result'],'live checkpoint result');

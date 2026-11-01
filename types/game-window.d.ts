@@ -3,6 +3,7 @@ interface GameRun {
   state: string;
   camYaw: number;
   resume(): void;
+  checkpoint(): void;
   startSpecies: number;
   biome: {id:string};
   mode: string;
