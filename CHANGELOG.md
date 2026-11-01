@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.15
+
+### Patch Changes
+
+- Fix the packaging matcher advisory with scoped compatible ASAR dependencies. Hold unreviewed upstream builds before acquisition and report the review requirement in the sync summary.
+
 ## 0.0.14
 
 ### Patch Changes

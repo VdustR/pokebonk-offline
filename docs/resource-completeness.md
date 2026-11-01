@@ -21,8 +21,13 @@ a generated output of acquisition, preparation, verification or promotion.
   fatal; retries and missing-image reporting are not suppressed.
 
 This deliberately holds automatic upstream updates for dependency review.
-A future upstream build fails acquisition instead of publishing unreviewed URL
-producers. Changes to tables, callback code, styles or catalogs are covered by
+Identity preflight reports a future upstream build as `review-required`, with
+`changed=true` and `eligible=false`, and records the accepted and detected versions
+in the workflow summary. Acquisition, validation and publication are skipped
+until the independent contract has been reviewed. This expected hold completes
+successfully; network, malformed identity and acquisition/verification errors
+still fail. Direct acquisition also rejects unreviewed builds instead of
+publishing unreviewed URL producers. Changes to tables, callback code, styles or catalogs are covered by
 this conservative boundary without trying to solve arbitrary JavaScript.
 Builder/runtime changes that do not change upstream inputs remain releasable.
 
