@@ -131,6 +131,9 @@ class LocalSandboxBackend implements LocalBackendContract {
   async loadProfile() {
     const raw = localStorage.getItem('pokebonk.local.profile.v1');
     this.current = this.unlock(this.normalize(raw ? JSON.parse(raw) : null));
+    // Reject damaged recovery envelopes before startup exposes a playable
+    // profile that could overwrite the previous run's checkpoint.
+    await this.savedBlob('runsave');await this.savedBlob('runauto');
     await this.persist();
     // Reconcile a completed settlement whose process stopped before cleanup.
     // Never offer an already-awarded manual save again on the next startup.
@@ -176,13 +179,13 @@ class LocalSandboxBackend implements LocalBackendContract {
     const blob=localObject(JSON.parse(raw));
     const savedTicket=localTicket(blob['ticket']);
     const id=savedTicket.id;
+    if(this.settledIds().includes(id)||this.profile.runs.some(run=>run.id===id))return null;
     const save=localString(blob['save']),storedHash=localString(blob['hash']);
     const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(save)))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
     if(!id.startsWith('local-')||storedHash!==digest||(ticket&&id!==ticket.id)||(hash&&hash!==digest))throw new Error('Invalid local run save identity or hash');
     const body=localObject(JSON.parse(save));
     if(body['v']!==1)throw new Error('Unsupported local run save version');
     localObject(body['cfg']);localObject(body['summary']);const result=localResult(body['result']);
-    if(this.settledIds().includes(id))return null;
     return {id,hash:digest,result};
   }
   settledIds() { return localList(this.profile['localSettledRuns']??[],localString); }

@@ -47,3 +47,9 @@ profile, resumes through the visible dialog, and settles. It also forces the
 real autosave checkpoint producer before process loss and verifies recovery and
 that settled saves are not offered again. Real user-profile preservation is a
 separate release/install gate.
+
+Startup validates existing recovery envelopes before exposing a playable profile
+or persisting normalization. A damaged or incompatible save therefore cannot be
+silently replaced by starting another run. Known durable settlements are
+reconciled during startup when their ticket remains readable, even if the stale save payload was damaged
+after settlement.

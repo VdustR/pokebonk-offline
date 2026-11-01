@@ -182,3 +182,10 @@ test('settled IDs survive display-history eviction and interrupted manual-save c
   for(let index=0;index<31;index++){const ticket=await reload.startRun(null,{});await reload.finishRun(null,ticket,{});}
   await reload.finishRun(null,first,{progress:{counters:{kills:3}}});const p=await reload.loadProfile();assert.equal(p.runs.length,30);assert.equal(p.counters['kills'],3);assert.equal(p.counters['runs'],32);
 });
+
+test('startup rejects corrupt or incompatible recovery data before writing the profile',async()=>{
+  for(const broken of ['{',JSON.stringify({ticket:{id:'local-old',seed:1,boosts:[]},save:'{}',hash:'bad'})]) {
+    const storage=new Map<string,string>(),b=backend(storage);await b.loadProfile();storage.set('pb.runauto.local-sandbox',broken);const before=[...storage];
+    await assert.rejects(backend(storage).loadProfile());assert.deepEqual([...storage],before);
+  }
+});
