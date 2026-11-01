@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, protocol, session } from "electron";
+import { app, BrowserWindow, Menu, dialog, protocol, session, shell } from "electron";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -221,11 +221,27 @@ function createWindow() {
     },
   });
 
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  const openExternal = (value: string) => {
+    let url;
+    try { url = new URL(value); } catch { return; }
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return;
+    void shell.openExternal(url.href).catch(error => {
+      console.error("Failed to open external link", error);
+      if (!window.isDestroyed()) void dialog.showMessageBox(window, {
+        type: "error",
+        message: "The link could not be opened in your default browser.",
+      });
+    });
+  };
+  window.webContents.setWindowOpenHandler(({url}) => {
+    openExternal(url);
+    return { action: "deny" };
+  });
   window.webContents.on("will-navigate", event => {
     const target = new URL(event.url);
     if (target.protocol !== `${APP_SCHEME}:` || target.host !== APP_HOST) {
       event.preventDefault();
+      openExternal(event.url);
     }
   });
   window.webContents.on("will-prevent-unload", event => {

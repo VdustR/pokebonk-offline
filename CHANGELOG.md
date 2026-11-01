@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.18
+
+### Patch Changes
+
+- Open desktop external web links in the system default browser while keeping the game offline and preserving the homepage Leave behavior.
+
 ## 0.0.17
 
 ### Patch Changes
