@@ -42,3 +42,10 @@ For a local installed app, verify its packaged provenance and signature, and run
 The first macOS arm64 packaged CI run reached active forest gameplay but timed out in `locator('canvas').click()`: Playwright reported that the HTML root intercepted pointer events. The failure artifact showed gameplay continuing into a level-up modal during retries. The same head passed Linux packaged input/gameplay checks. See the [initial macOS CI run](https://github.com/VdustR/pokebonk-offline/actions/runs/40193048981).
 
 Acquisition tests use a trusted `w` key press, which upstream already handles for keyboard/mouse capture. A local tiny body-lock probe accepted a second element click, so the observation does not establish a generic Electron hit-testing defect. The keyboard path avoids making an element hit-test a precondition while native pointer lock may already be active, and still asserts real canvas lock and camera response. The production permission change remains unchanged.
+
+Native acceptance establishes both BrowserWindow and webContents focus before
+sending gameplay keys after renderer reloads. On macOS, document.hasFocus() can
+remain true while both native focus probes are false; Chromium then rejects
+requestPointerLock with WrongDocumentError. A controlled reload reproduced
+that mismatch, while explicit native focus restored real canvas capture. This
+is test input preparation, not a production retry or permission-policy change.

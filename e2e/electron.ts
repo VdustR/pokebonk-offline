@@ -64,7 +64,17 @@ try {
   await page.screenshot({path:'evidence/electron-desktop-page.png'});
   await page.keyboard.press('Escape');
   await checkAppearanceAssets(page);
-  await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true});
+  await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true,focusPointerInput:async()=>{
+    // A renderer reload can lose native widget focus while document.hasFocus()
+    // still reports true. Establish actual input focus before sending keys.
+    const focused=await app?.evaluate(({app,BrowserWindow})=>{
+      app.focus({steal:true});const window=BrowserWindow.getAllWindows()[0];
+      if(!window)throw new Error('Missing native input window');
+      window.focus();window.webContents.focus();
+      return {window:window.isFocused(),contents:window.webContents.isFocused()};
+    });
+    assert.deepEqual(focused,{window:true,contents:true});
+  }});
   assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   const gameRequests=[...external];
   assert.equal(await page.evaluate(()=>fetch('https://example.com/').then(()=>false,()=>true)),true,'Network must be blocked');

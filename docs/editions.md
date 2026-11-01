@@ -36,3 +36,8 @@ online friend counts, search, requests or co-op controls. The patch resolves
 upstream screen helpers semantically and rejects unsupported routes during
 preparation. It preserves the online route and the existing Back/Escape flow;
 opening the local screen does not call social APIs or change local storage.
+
+Live run checkpoints resolve the upstream meta adapter's backend method by its
+account/ticket/report contract, including minified method names. The local
+backend persists that report under its existing pending key; unknown online
+operations still reject. Native acceptance waits for a real periodic checkpoint.

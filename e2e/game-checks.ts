@@ -1,6 +1,7 @@
 import type {Page} from 'playwright-core';
 import type {BuildMetadata} from '../types/metadata.ts';
 import assert from 'node:assert/strict';
+import {record,text} from '../types/data.ts';
 import {writeFile} from 'node:fs/promises';
 
 export async function dismissMenuNotices(page: Page) {
@@ -12,7 +13,7 @@ export async function dismissMenuNotices(page: Page) {
   }
 }
 
-export async function checkGame(page: Page,metadata: BuildMetadata,label: string,{gameplay=true,pointerLock=false}={}) {
+export async function checkGame(page: Page,metadata: BuildMetadata,label: string,{gameplay=true,pointerLock=false,focusPointerInput}:{gameplay?:boolean;pointerLock?:boolean;focusPointerInput?:()=>Promise<void>}={}) {
   await page.addInitScript(()=>{
     const key='pokebonk.local.profile.v1';
     const value: unknown=JSON.parse(localStorage.getItem(key)||'{}');
@@ -100,6 +101,7 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
     assert.equal(await page.evaluate(config=>window.__pokebonkLocalApp.startRun({...config,boosts:[]}),config),true);
     await page.waitForFunction(()=>(window.__pokebonkLocalApp.run?.time ?? 0)>3,null,{timeout:90000});
     if(pointerLock&&config.biome==='forest') {
+      await focusPointerInput?.();
       // Keyboard input also acquires lock when the game has armed it. Avoid
       // locator hit-testing while native capture has already hidden the cursor.
       await page.keyboard.press('w');
@@ -125,6 +127,13 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
       await page.keyboard.press('w');
       await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS');
       console.log(label,'pointer lock, camera movement, Escape, resume and map release passed');
+      // Wait for the game's periodic live checkpoint through its actual meta
+      // adapter; a missing minified binding must reject this acceptance path.
+      await page.waitForFunction(()=>localStorage.getItem('pokebonk.local.pending.v1')!==null,null,{timeout:45000});
+      const pending=record(JSON.parse(await page.evaluate(()=>localStorage.getItem('pokebonk.local.pending.v1')??'null')),'live checkpoint');
+      assert.match(text(record(pending['ticket'])['id']),/^local-/);
+      record(pending['result'],'live checkpoint result');
+      console.log(label,'live checkpoint persisted locally');
     }
     if(config.biome==='glacier') {
       await page.evaluate(()=>{const r=window.__pokebonkLocalApp.run;if(!r)throw new Error('Expected active run');r.boss.spawn(91,r.player.pos.x+8,r.player.pos.z,false);const i=r.boss.bossIndex;for(const key of ['poison','sleep','para'] as const)r.enemies[key][i]=20;r.enemies.poisonStacks[i]=3;});
