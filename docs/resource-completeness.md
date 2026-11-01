@@ -115,3 +115,14 @@ The main release failure had no HTTP or network errors; its original generic
 decode exception did not record the specific image. This fixes a demonstrated
 readiness gap and adds URL diagnostics without claiming that every decoder
 error has this cause.
+
+### Character preview overlap during automated acceptance
+
+Calling the run-exit `toMenu()` method while already browsing character selection
+created another menu scene without disposing the existing preview. The test
+then launched a different character and left the Mewtwo preview at world origin,
+overlapping the player. A controlled native comparison reproduced the overlap
+with the direct test call and showed clean gameplay through the normal Back
+button. This is distinct from missing assets. Acceptance now uses Back on menu
+screens and holds the selected preview mesh reference to verify that launch
+removes it from the rendered scene. Run settlement still uses the run-exit flow.

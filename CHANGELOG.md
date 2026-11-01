@@ -1,5 +1,12 @@
 # pokebonk-offline-builder
 
+## 0.0.16
+
+### Patch Changes
+
+- Resolve renamed live checkpoint methods to local persistence, and establish native input focus after renderer reloads during acceptance.
+- Replace unusable online controls and the undefined friend limit with a localized offline explanation. Preserve Back/Escape navigation and all saved progress.
+
 ## 0.0.15
 
 ### Patch Changes

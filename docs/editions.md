@@ -30,3 +30,14 @@ Existing Unlocked profiles already contain every reward and cannot be reliably c
 ## Revisit gate (no work scheduled)
 
 Use an isolated Standard save to complete one loop: choose a starter, finish a run, receive the verified reward, purchase one upgrade, reload, and confirm the balance/upgrade and single-claim invariants. Add insufficient-funds and duplicate-claim controls. Do not build and publish a second set of binaries until that loop and the remaining progression contracts are verified.
+
+The local Friends route displays a localized offline explanation instead of
+online friend counts, search, requests or co-op controls. The patch resolves
+upstream screen helpers semantically and rejects unsupported routes during
+preparation. It preserves the online route and the existing Back/Escape flow;
+opening the local screen does not call social APIs or change local storage.
+
+Live run checkpoints resolve the upstream meta adapter's backend method by its
+account/ticket/report contract, including minified method names. The local
+backend persists that report under its existing pending key; unknown online
+operations still reject. Native acceptance invokes the actual gameplay checkpoint and checks local persistence.

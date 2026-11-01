@@ -6,6 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {checkGame,dismissMenuNotices} from './game-checks.ts';
+import {focusNativeInput} from './native-input-focus.ts';
+import {checkOfflineFriends} from './friends-checks.ts';
 import {checkAppearanceAssets} from './appearance-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
@@ -40,6 +42,7 @@ try {
   await page.waitForFunction(()=>document.hasFocus());
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
   await dismissMenuNotices(page);
+  await checkOfflineFriends(page);
   await page.locator('.dk-btn').click();
   await page.locator('.dk-gem-ic img').first().waitFor({state:'visible'});
   assert.equal(await page.locator('.dk-gem-ic img').count(),3);
@@ -62,7 +65,7 @@ try {
   await page.screenshot({path:'evidence/electron-desktop-page.png'});
   await page.keyboard.press('Escape');
   await checkAppearanceAssets(page);
-  await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true});
+  await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true,focusPointerInput:async()=>{if(!app)throw new Error('Missing Electron application');await focusNativeInput(app);}});
   assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   const gameRequests=[...external];
   assert.equal(await page.evaluate(()=>fetch('https://example.com/').then(()=>false,()=>true)),true,'Network must be blocked');

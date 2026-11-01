@@ -3,6 +3,7 @@ interface GameRun {
   state: string;
   camYaw: number;
   resume(): void;
+  checkpoint(): void;
   startSpecies: number;
   biome: {id:string};
   mode: string;
@@ -12,10 +13,12 @@ interface GameRun {
   endHow: string;
   finish(victory:boolean,quit:boolean):Promise<void>;
 }
+interface GamePreviewMesh {parent:unknown;count:number}
 interface Window {
   // The patch exports this instance solely for native smoke verification.
   __pokebonkLocalApp: {
     meta: {profile:import('./profile.d.ts').ReadyProfile;tasksReady():number};
+    menuScene:{sprites:{batches:Map<number,{mesh:GamePreviewMesh}>}} | null;
     backend:import('./backend.d.ts').SandboxBackend;
     run:GameRun | null;
     toMenu():void;

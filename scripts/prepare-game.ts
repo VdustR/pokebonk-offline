@@ -9,6 +9,8 @@ import {inspectItemIcons} from './item-icons.ts';
 import {versionForBuild} from './upstream-version.ts';
 import {offlineVersion,sourceDigest} from './release-source.ts';
 import {readSnapshot,snapshotDirectory} from './upstream-snapshot.ts';
+import {patchLiveRunAlias} from './live-run-alias.ts';
+import {patchOfflineFriends} from './offline-friends.ts';
 import {patchNativeOriginGate} from './native-origin.ts';
 import {readResourceContract,assertReviewedInputs,assertRequiredResources,resourceContractDigest} from './resource-contract.ts';
 
@@ -31,7 +33,7 @@ const missing=manifest.missingCandidates;
 const bytes=[...files.values()].reduce((sum,value)=>sum+value.length,0);
 const sha=(value:string|Buffer)=>createHash('sha256').update(value).digest('hex');
 const patched = patchGame(main, config, await readFile('dist/runtime/local-backend.js','utf8'));
-files.set(mainKey, Buffer.from(patched.main));
+files.set(mainKey, Buffer.from(patchOfflineFriends(patchLiveRunAlias(patched.main))));
 files.set(configKey, Buffer.from(patched.config));
 const entryKey=one([...files.keys()].filter(key=>key.endsWith('.js')&&html.includes(`src="./${key}"`)),'snapshot entry module');
 files.set(entryKey,Buffer.from(patchNativeOriginGate(contents(entryKey))));
