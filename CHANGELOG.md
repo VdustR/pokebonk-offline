@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.16
+
+### Patch Changes
+
+- Replace unusable online controls and the undefined friend limit with a localized offline explanation. Preserve Back/Escape navigation and all saved progress.
+
 ## 0.0.15
 
 ### Patch Changes

@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {checkGame,dismissMenuNotices} from './game-checks.ts';
+import {checkOfflineFriends} from './friends-checks.ts';
 import {checkAppearanceAssets} from './appearance-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
@@ -40,6 +41,7 @@ try {
   await page.waitForFunction(()=>document.hasFocus());
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
   await dismissMenuNotices(page);
+  await checkOfflineFriends(page);
   await page.locator('.dk-btn').click();
   await page.locator('.dk-gem-ic img').first().waitFor({state:'visible'});
   assert.equal(await page.locator('.dk-gem-ic img').count(),3);
