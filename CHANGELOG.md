@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Fix the packaging matcher advisory with scoped compatible ASAR dependencies. Hold unreviewed upstream builds before acquisition and report the review requirement in the sync summary.
+- Fix the packaging matcher advisory with scoped compatible ASAR dependencies. Hold unreviewed upstream builds before acquisition and report the review requirement in the sync summary. Use signed official Ubuntu HTTPS sources with bounded acquisition and step timeouts for native CI dependencies.
 
 ## 0.0.14
 

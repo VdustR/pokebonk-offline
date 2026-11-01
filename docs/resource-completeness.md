@@ -85,3 +85,18 @@ Dex/glossary, lab, treasure, event and daily-mutation subpages on a disposable
 profile. Online-only profile content is unavailable in the local sandbox and
 is not covered by this observation. These are bounded current-build checks,
 not a guarantee about every future screen or remotely populated social state.
+
+## Linux native CI setup
+
+Both Linux window-manager setup steps call `e2e/install-linux-desktop.sh`.
+The GitHub runner mirror list was observed retrying Azure Ubuntu indexes for
+several minutes before official-archive failover. A related
+[runner image report](https://github.com/actions/runner-images/issues/15040)
+describes the same acquisition stall; the remote backend cause is unconfirmed.
+The installer uses a temporary, command-scoped source list for Ubuntu 24.04
+amd64, official archive/security HTTPS endpoints and the existing Ubuntu archive
+keyring. It does not change runner-wide repositories or disable signature/TLS
+verification. Both index refresh and installation have two retries and 20-second
+connection/data timeouts; each workflow step has a six-minute total deadline.
+Any index error fails before package installation. This bounds and avoids the
+observed mirror-list path; it cannot guarantee external archive availability.
