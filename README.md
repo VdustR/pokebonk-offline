@@ -96,3 +96,7 @@ Android signing passwords remain in GitHub Actions secrets. `android/signing-cer
 Builder code uses the included AGPL-3.0 license. PokéBonk's game code and assets are stored as a pristine, versioned snapshot, retain their original rights, and are not covered by the builder license. The upstream legal page and original credits remain included; see [vendored upstream notices](vendor/README.md).
 
 Credit goes to Charcher and the original contributors. Pokémon names and assets belong to their respective owners; the game's credits and legal page remain included. This is an unofficial, noncommercial personal build with no affiliation or endorsement.
+
+Local manual saves and autosave recovery preserve the game simulation across
+native process restarts. See [local run recovery](docs/local-run-recovery.md)
+for settlement, interruption handling and the cloud capability boundary.

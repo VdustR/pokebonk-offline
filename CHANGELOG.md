@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.17
+
+### Patch Changes
+
+- Support local manual saves, autosave recovery and idempotent run settlement, and update the reviewed upstream game to 0.8.86.
+
 ## 0.0.16
 
 ### Patch Changes

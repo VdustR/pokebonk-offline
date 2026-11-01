@@ -4,6 +4,9 @@ interface GameRun {
   camYaw: number;
   resume(): void;
   checkpoint(): void;
+  pause(): void;
+  nextAuto: number;
+  input: {releaseLock():void};
   startSpecies: number;
   biome: {id:string};
   mode: string;
