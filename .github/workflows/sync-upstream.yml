@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     outputs:
-      changed: ${{ steps.identity.outputs.changed }}
+      eligible: ${{ steps.identity.outputs.eligible }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -34,7 +34,7 @@ jobs:
         id: identity
         run: node scripts/check-upstream.ts
       - name: Restore upstream downloads
-        if: steps.identity.outputs.changed == 'true'
+        if: steps.identity.outputs.eligible == 'true'
         continue-on-error: true
         timeout-minutes: 5
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -43,12 +43,12 @@ jobs:
           key: upstream-v2-${{ runner.os }}-${{ steps.identity.outputs.build }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: upstream-v2-${{ runner.os }}-${{ steps.identity.outputs.build }}-
       - name: Collect pristine candidate
-        if: steps.identity.outputs.changed == 'true'
+        if: steps.identity.outputs.eligible == 'true'
         env:
           EXPECTED_BUILD: ${{ steps.identity.outputs.build }}
         run: timeout --kill-after=30s 20m pnpm sync:upstream
       - name: Checkpoint completed downloads
-        if: always() && !cancelled() && steps.identity.outputs.changed == 'true'
+        if: always() && !cancelled() && steps.identity.outputs.eligible == 'true'
         continue-on-error: true
         timeout-minutes: 5
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -56,7 +56,7 @@ jobs:
           path: cache/upstream
           key: upstream-v2-${{ runner.os }}-${{ steps.identity.outputs.build }}-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: steps.identity.outputs.changed == 'true'
+        if: steps.identity.outputs.eligible == 'true'
         with:
           name: upstream-candidate
           path: cache/upstream-candidate/
@@ -64,7 +64,7 @@ jobs:
 
   validate:
     needs: acquire
-    if: needs.acquire.outputs.changed == 'true'
+    if: needs.acquire.outputs.eligible == 'true'
     uses: ./.github/workflows/build-game.yml
     with:
       snapshot_artifact: upstream-candidate
@@ -72,7 +72,7 @@ jobs:
 
   publish:
     needs: [acquire, validate]
-    if: needs.acquire.outputs.changed == 'true'
+    if: needs.acquire.outputs.eligible == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

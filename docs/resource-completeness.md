@@ -21,8 +21,13 @@ a generated output of acquisition, preparation, verification or promotion.
   fatal; retries and missing-image reporting are not suppressed.
 
 This deliberately holds automatic upstream updates for dependency review.
-A future upstream build fails acquisition instead of publishing unreviewed URL
-producers. Changes to tables, callback code, styles or catalogs are covered by
+Identity preflight reports a future upstream build as `review-required`, with
+`changed=true` and `eligible=false`, and records the accepted and detected versions
+in the workflow summary. Acquisition, validation and publication are skipped
+until the independent contract has been reviewed. This expected hold completes
+successfully; network, malformed identity and acquisition/verification errors
+still fail. Direct acquisition also rejects unreviewed builds instead of
+publishing unreviewed URL producers. Changes to tables, callback code, styles or catalogs are covered by
 this conservative boundary without trying to solve arbitrary JavaScript.
 Builder/runtime changes that do not change upstream inputs remain releasable.
 
@@ -80,3 +85,18 @@ Dex/glossary, lab, treasure, event and daily-mutation subpages on a disposable
 profile. Online-only profile content is unavailable in the local sandbox and
 is not covered by this observation. These are bounded current-build checks,
 not a guarantee about every future screen or remotely populated social state.
+
+## Linux native CI setup
+
+Both Linux window-manager setup steps call `e2e/install-linux-desktop.sh`.
+The GitHub runner mirror list was observed retrying Azure Ubuntu indexes for
+several minutes before official-archive failover. A related
+[runner image report](https://github.com/actions/runner-images/issues/15040)
+describes the same acquisition stall; the remote backend cause is unconfirmed.
+The installer uses a temporary, command-scoped source list for Ubuntu 24.04
+amd64, official archive/security HTTPS endpoints and the existing Ubuntu archive
+keyring. It does not change runner-wide repositories or disable signature/TLS
+verification. Both index refresh and installation have two retries and 20-second
+connection/data timeouts; each workflow step has a six-minute total deadline.
+Any index error fails before package installation. This bounds and avoids the
+observed mirror-list path; it cannot guarantee external archive availability.

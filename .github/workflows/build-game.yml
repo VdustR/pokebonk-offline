@@ -70,7 +70,8 @@ jobs:
         run: node scripts/check-update.ts '${{ inputs.snapshot_artifact != '' && 'cache/upstream-candidate' || 'vendor/pokebonk' }}'
       - name: Install native desktop test window manager
         if: steps.identity.outputs.changed == 'true'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox x11-utils
+        timeout-minutes: 6
+        run: bash e2e/install-linux-desktop.sh
       - name: Validate builder
         if: steps.identity.outputs.changed == 'true'
         run: |
@@ -141,7 +142,8 @@ jobs:
           pnpm package:electron build/game release ${{ matrix.platform }} ${{ matrix.arch }}
       - name: Install Linux native window manager
         if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openbox x11-utils
+        timeout-minutes: 6
+        run: bash e2e/install-linux-desktop.sh
       - name: Test packaged Linux app
         if: matrix.platform == 'linux'
         run: |
