@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {planUpstream} from '../scripts/upstream-plan.ts';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -33,7 +33,14 @@ test('identity command reports a review hold and still rejects identity and HTTP
         assert.throws(run,scenario==='mismatch'?/version under the same build/:scenario==='http'?/Upstream request: 404/:/upstream build/);
         await assert.rejects(readFile(output));
       } else {
-        run();
+        const result=spawnSync(process.execPath,['--import',loader,'scripts/check-upstream.ts'],{encoding:'utf8',env:{...process.env,GITHUB_OUTPUT:output,GITHUB_STEP_SUMMARY:summary}});
+        assert.equal(result.status,scenario==='review'?1:0,result.stderr);
+        if(scenario==='review') {
+          assert.match(result.stdout,/::error title=Upstream resource review required::/);
+          assert.ok(result.stdout.includes(`Accepted: ${accepted.upstreamVersion} (${accepted.upstreamBuild})`));
+          assert.ok(result.stdout.includes(`Detected: ${accepted.upstreamVersion} (unreviewed-fixture)`));
+          assert.match(result.stdout,/docs\/resource-completeness\.md/);
+        } else assert.doesNotMatch(result.stdout,/::error/);
         assert.match(await readFile(output,'utf8'),/eligible=false/);
         assert.match(await readFile(output,'utf8'),scenario==='review'?/changed=true\neligible=false\nstatus=review-required/:/changed=false\neligible=false\nstatus=current/);
         assert.match(await readFile(summary,'utf8'),scenario==='review'?/publication are held/:/snapshot is current/);
