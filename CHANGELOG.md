@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.20
+
+### Patch Changes
+
+- Resolve the season calculator from its actual import module when preparing split upstream bundles.
+
 ## 0.0.19
 
 ### Patch Changes

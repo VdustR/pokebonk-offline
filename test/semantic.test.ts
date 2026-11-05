@@ -84,10 +84,10 @@ test('period changes grant local task rewards while ordinary profiles keep progr
 test('split menu modules keep profile and reward patches in their owning module',()=>{
   const menus=main
     .replace("function backendSymbol(){return new Http('https://api.pokebonk.com');}",'')
-    .replace('class Http{season(){return this.info??seasonFunction(Date.now());}}','function seasonFunction(){return {season:2};} export {seasonFunction as seasonExport};')
+    .replace('class Http{season(){return this.info??seasonFunction(Date.now());}}','function seasonFunction(){return {season:2};} export {seasonFunction as seasonExport,registrySymbol as registryExport};')
     .replace('await new Application().boot();','')
     .replace(',scoreExport as scoreAlias','');
-  const application=`import {seasonExport as renamedSeason} from './menus.js';
+  const application=`import {seasonExport as renamedSeason,registryExport as registry} from './menus.js';
     function backendSymbol(){return new Http('https://api.pokebonk.com');}
     class Http{season(){return this.info??renamedSeason(Date.now());}}
     class Shell{boot(){}} await new Shell().boot();`;
@@ -101,6 +101,7 @@ test('split menu modules keep profile and reward patches in their owning module'
   assert.match(result.menus,/import \{scoreExport as __pokebonkConfig_scoreSymbol\} from "\.\/config.js"/);
   assert.doesNotMatch(result.main,/const profile=profileSymbol/);
   assert.throws(()=>patchGame(application,config,'',{source:menus.replace('seasonFunction as seasonExport','seasonFunction as wrongExport'),path:'./menus.js'}),/season/);
+  assert.throws(()=>patchGame(application.replace('seasonExport as renamedSeason,','').replace('function backendSymbol()',"import {seasonExport as renamedSeason} from './unknown.js'; function backendSymbol()"),config,'',{source:menus,path:'./menus.js'}),/unknown season module/);
 });
 
 test('nested achievement cosmetics include banner, avatar and frame rewards',()=>{

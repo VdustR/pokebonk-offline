@@ -55,7 +55,21 @@ export function inspectGame(main: string, config: string, menus=main) {
   const seasonMethod = one(nodesOf(appTree,'MethodDefinition', n => maybeName(n.key) === 'season' && main.slice(n.start, n.end).includes('this.info')), 'season method');
   const seasonBinding = nameOf(one(nodesOf(seasonMethod,'CallExpression', n => n.callee.type === 'Identifier'), 'season calculation').callee);
   const seasonImport=menus===main?undefined:one(nodesOf(appTree,'ImportSpecifier',n=>n.local.name===seasonBinding),'season import');
-  const seasonCall=seasonImport?nameOf(one(nodesOf(tree,'ExportSpecifier',n=>maybeName(n.exported)===maybeName(seasonImport.imported)),'season menu export').local):seasonBinding;
+  let seasonCall=seasonBinding;
+  if(seasonImport) {
+    const owner=one(nodesOf(appTree,'ImportDeclaration',n=>n.specifiers.includes(seasonImport)),'season import owner');
+    const rosterExport=one(nodesOf(configTree,'ExportSpecifier',n=>maybeName(n.local)===rosterName),'roster config export');
+    const configOwner=one(nodesOf(tree,'ImportDeclaration',n=>n.specifiers.some(s=>s.type==='ImportSpecifier'&&maybeName(s.imported)===maybeName(rosterExport.exported))),'menu config owner');
+    if(literal(owner.source)===literal(configOwner.source)) {
+      const binding=one(nodesOf(configTree,'ExportSpecifier',n=>maybeName(n.exported)===maybeName(seasonImport.imported)),'season config export');
+      seasonCall=alias(nameOf(binding.local));
+    } else {
+      const registryExport=one(nodesOf(tree,'ExportSpecifier',n=>maybeName(n.local)===registry),'registry menu export');
+      const menuOwner=one(nodesOf(appTree,'ImportDeclaration',n=>n.specifiers.some(s=>s.type==='ImportSpecifier'&&maybeName(s.imported)===maybeName(registryExport.exported))),'application menu owner');
+      if(literal(owner.source)!==literal(menuOwner.source))throw new Error('Unsupported upstream: unknown season module');
+      seasonCall=nameOf(one(nodesOf(tree,'ExportSpecifier',n=>maybeName(n.exported)===maybeName(seasonImport.imported)),'season menu export').local);
+    }
+  }
   const scoreDeclaration = one(nodesOf(configTree,'VariableDeclarator', n => n.init?.type === 'ArrowFunctionExpression'
     && config.slice(n.start,n.end).includes('.kills') && config.slice(n.start,n.end).includes('.time')
     && config.slice(n.start,n.end).includes('.victory')), 'run score');
