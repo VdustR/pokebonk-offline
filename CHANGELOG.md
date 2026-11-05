@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.21
+
+### Patch Changes
+
+- Fail upstream synchronization visibly when resource review is required, and check daily while retaining manual dispatch.
+
 ## 0.0.20
 
 ### Patch Changes
