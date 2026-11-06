@@ -18285,6 +18285,11 @@
       "sha256": "01c84b7ec1cb638cd00052cb5a110a13217b4c1f4638305a4e7c72c112d37a6a"
     },
     {
+      "name": "assets/ui/icons/exp-seal.png",
+      "bytes": 8127,
+      "sha256": "14e90600e868fea5f5bdb4318c5c34018178123b9314c51307c4831e6dbbb6d5"
+    },
+    {
       "name": "assets/ui/icons/exp-shard.png",
       "bytes": 7645,
       "sha256": "cdacc6c5d77da315818072e8acd191a16d3086afeb0ac70c3d3a9492d70dd0cb"
@@ -19593,5 +19598,5 @@
     "assets/ui/ranks/legend.png",
     "assets/ui/ranks/silver.png"
   ],
-  "digest": "007fe8e74728aa9f5dcaeb15da2634a219f4a6a0cb3b56085e04bdf8530b9a83"
+  "digest": "66f228da62a846256daf1891c123301026914eb1b851a8854656352e5a2fe660"
 }

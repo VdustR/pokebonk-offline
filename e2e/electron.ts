@@ -9,6 +9,7 @@ import {checkGame,dismissMenuNotices} from './game-checks.ts';
 import {focusNativeInput} from './native-input-focus.ts';
 import {checkOfflineFriends} from './friends-checks.ts';
 import {checkRunSaves,checkCorruptRecovery} from './run-save-checks.ts';
+import {checkEventAssets} from './event-checks.ts';
 import {checkAppearanceAssets} from './appearance-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
@@ -47,6 +48,7 @@ try {
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
   await dismissMenuNotices(page);
   await checkOfflineFriends(page);
+  await checkEventAssets(page);
   await page.locator('.dk-btn').click();
   await page.locator('.dk-card .dk-ic svg').first().waitFor({state:'visible'});
   assert.equal(await page.locator('.dk-card .dk-ic svg').count(),4);
