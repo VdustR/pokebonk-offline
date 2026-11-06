@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { ast, nodes, nodesOf, literal, maybeName, nameOf, requireNode } from './source.ts';
 import { inspectGame } from './patch-game.ts';
 import {gameModules} from './game-modules.ts';
+import {inspectStyleFrameCatalog} from './optional-look-frames.ts';
 import {inspectReleaseIcons} from './release-icons.ts';
 import { inspectIconCatalogs } from './catalog-icons.ts';
 import {inspectItemIcons} from './item-icons.ts';
@@ -174,8 +175,8 @@ for (const value of Object.values(info.values)) if (objectArray(value)) for (con
   if (entry['id'] && entry['how'] && !entry['kind'] && typeof entry['id'] === 'string') {
     for (const dir of ['ui/avatars','ui/frames','ui/clan/sym','ui/clan/deco']) add(`assets/${dir}/${entry['id']}.png`, true);
   }
-  if (typeof entry['style'] === 'string' && entry['style']) add(`assets/ui/frames/look-${entry['style']}.png`, true);
 }
+for(const style of inspectStyleFrameCatalog(config,menus,{config:modules.config.name,menus:modules.menus.name}))add(`assets/ui/frames/look-${style}.png`);
 const {iconFunction,appIconFunction,statusIcons,reactionIcons}=inspectIconCatalogs(main,config,menus);
 for(const key of [...statusIcons,...reactionIcons,...inspectReleaseIcons(menus)])add(key);
 for (const tree of allTrees) {
