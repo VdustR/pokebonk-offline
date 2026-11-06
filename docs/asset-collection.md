@@ -95,3 +95,28 @@ The 0.8.83 release-note renderer reads category icons from an indirect table. Th
 The 0.8.83 treasure screen uses one background per wheel: `assets/ui/treasures/bg-<wheel>.png`. Those constructed URLs were absent from the snapshot. `treasure-catalog.ts` now resolves all wheel IDs and prizes from the evaluated configuration, validates unique safe IDs and cosmetic tokens, and makes every background required during sync and verification. The pinned snapshot includes all three original PNGs, totaling about 1.4 MiB.
 
 Local profiles merge every catalog prize into `treasures[wheelId].won` and grant its cosmetic tokens. Preparation items retain the existing 999-per-item policy. Loading and saving are idempotent: no spin requests, Bonkoin deductions, extra run history, or repeated additive rewards occur. Unknown profile fields, wheel fields, and existing collection entries are retained; malformed collection structures reject without replacing the stored save. Native acceptance checks all three 10/10 tabs and decodes each background.
+
+## Expedition stamp counters
+
+The 0.9.13 expedition event renders `points.icon` from its configuration in the
+header, stamp-track milestones and settlement notices. The configured
+`exp-seal` token was missing from the captured snapshot and the independent
+resource baseline. Native Electron reproduction returned HTTP 404 for
+`assets/ui/icons/exp-seal.png?v=M-lsp1Dr`, matching the repeated broken images.
+The versioned upstream GET returned the original 8,127-byte PNG successfully.
+
+The snapshot now includes those original bytes, and the resource contract makes
+the image mandatory for acquisition, preparation and payload verification.
+Removing it from an otherwise consistent payload manifest rejects verification.
+This uses the existing reviewed-resource boundary rather than adding another
+heuristic for indirect icon calls. An upstream input change still requires the
+existing dependency review; this repair does not establish completeness for
+other resource families.
+
+`test/event-icons.test.ts` protects snapshot inclusion and independent contract
+membership. Native acceptance opens the advertised event through its menu card
+and decodes images on every event tab, including all stamp milestones. When no
+event is live this runtime check is skipped; static requirements remain enforced.
+The repair was reproduced and visually verified in macOS Electron with an
+isolated profile. Removing the prepared stamp image makes the same native check
+fail again. Android rendering and published binaries require separate validation.

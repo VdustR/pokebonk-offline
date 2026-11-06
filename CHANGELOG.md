@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.23
+
+### Patch Changes
+
+- Bundle the expedition stamp icon so activity counters and reward milestones display correctly offline. Require the image during collection and verification, and check rendered images across event tabs in native desktop acceptance.
+
 ## 0.0.22
 
 ### Patch Changes
