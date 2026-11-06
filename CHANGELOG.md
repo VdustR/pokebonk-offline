@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.22
+
+### Patch Changes
+
+- Report upstream builds in one pinned version-update issue, retain reviewed synchronization as a manual operation, and derive optional style frames from the upstream frame catalog.
+
 ## 0.0.21
 
 ### Patch Changes

@@ -42,3 +42,5 @@ automatic save recovery after process restart, settlement, corrupt-save
 preservation and network isolation. The conflicting-export regression fails
 with the previous resolver and passes with the source-aware resolver. CI still
 owns all-platform packaging and publication checks.
+
+Later review: the [0.9.13 capability analysis](upstream-0.9.13-review.md) supersedes the assumption that the three inferred style-frame URLs represent missing required artwork. Their 404 observations remain valid; original-PNG restoration is not the corrected offline acceptance criterion.

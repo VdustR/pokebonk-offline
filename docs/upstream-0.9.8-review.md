@@ -99,3 +99,5 @@ the complete League unlock. The local profile now normalizes the numeric
 only when unset and unlocks the current form catalog. Existing starter choices,
 selected character and counters are preserved; malformed new fields reject
 before a profile write. The focused backend regression failed before this fix.
+
+Later review: the [0.9.13 capability analysis](upstream-0.9.13-review.md) supersedes the assumption that the three inferred style-frame URLs represent missing required artwork. Their 404 observations remain valid; original-PNG restoration is not the corrected offline acceptance criterion.

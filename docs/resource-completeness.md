@@ -22,7 +22,7 @@ a generated output of acquisition, preparation, verification or promotion.
   inline platform SVGs and decodes all five computed CSS backgrounds. Network failures remain
   fatal; retries and missing-image reporting are not suppressed.
 
-This deliberately holds automatic upstream updates for dependency review.
+The daily version check reports updates in a reusable issue. The separate manual sync deliberately holds upstream acquisition for dependency review.
 Identity preflight reports a future upstream build as `review-required`, with
 `changed=true` and `eligible=false`, and records the accepted and detected versions
 in the workflow summary. Acquisition, validation and publication are skipped
@@ -153,3 +153,7 @@ payload, as preparation deliberately removes its link and file. These bounded
 source comparisons and native checks do not establish completeness for every
 remote social state or future build. See [local run recovery](local-run-recovery.md)
 for the new backend compatibility boundary.
+
+## Inferred paths and declared frame capabilities
+
+A generated candidate URL does not establish that an asset should exist. The [0.9.13 review](upstream-0.9.13-review.md) corrects an earlier missing-PNG assumption: procedural look styles and PNG frame styles have different catalogs. Collection and preview patching share the actual frame-picker catalog, with verified module ownership. Declared frames remain mandatory; explicit overrides and other required resources keep their validation.

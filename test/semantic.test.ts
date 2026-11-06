@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {ast,nodesOf,maybeName} from '../scripts/source.ts';
+import {ast,nodesOf,maybeName,literal,one} from '../scripts/source.ts';
+import {record} from '../types/data.ts';
 import { patchGame } from '../scripts/patch-game.ts';
 
 const config = `
@@ -108,4 +109,22 @@ test('nested achievement cosmetics include banner, avatar and frame rewards',()=
   const awarded=config.replace("reward:50}","reward:50,prizes:[{id:'bg:allcaught'},{id:'tr:pokemaster'},{id:'frame:allcaught'}]}");
   const result=patchGame(main,awarded,'const unlocked=__COSMETICS__;');
   for(const id of ['bg:allcaught','tr:pokemaster','frame:allcaught'])assert.ok(result.main.includes(JSON.stringify(id)));
+});
+
+test('configuration season imports remain callable when menus reuse the exported name for a number',()=>{
+  const configWithSeason=config+'function movedSeason(){return {season:3}}export{movedSeason as shared};';
+  const menus=main.replace("function backendSymbol(){return new Http('https://api.pokebonk.com');}",'')
+    .replace('class Http{season(){return this.info??seasonFunction(Date.now());}}','const unrelated=0.12;export{unrelated as shared,registrySymbol as registryExport};')
+    .replace('await new Application().boot();','');
+  const application="import{shared as season}from './config.js';import{registryExport as registry}from './menus.js';function backendSymbol(){return new Http('https://api.pokebonk.com')}class Http{season(){return this.info??season(Date.now())}}class Shell{boot(){}}await new Shell().boot();";
+  const result=patchGame(application,configWithSeason,'function createLocalSandboxBackend(){return {season:()=>__SEASON__(Date.now())}}',{source:menus,path:'./menus.js'});
+  assert.ok(result.menus);
+  const tree=ast(result.menus),factory=one(nodesOf(tree,'FunctionDeclaration',n=>maybeName(n.id)==='createLocalSandboxBackend'),'local backend');
+  const moved=one(nodesOf(ast(configWithSeason),'FunctionDeclaration',n=>maybeName(n.id)==='movedSeason'),'configuration calculator');
+  const bindings:Record<string,unknown>={unrelated:0.12};
+  for(const declaration of nodesOf(tree,'ImportDeclaration',n=>literal(n.source)==='./config.js'))for(const specifier of declaration.specifiers) {
+    if(specifier.type==='ImportSpecifier'&&maybeName(specifier.imported)==='shared')bindings[specifier.local.name]=vm.runInNewContext('('+configWithSeason.slice(moved.start,moved.end)+')');
+  }
+  const actual:unknown=vm.runInNewContext(result.menus.slice(factory.start,factory.end)+';createLocalSandboxBackend().season()',bindings);
+  assert.equal(record(actual)['season'],3);
 });
