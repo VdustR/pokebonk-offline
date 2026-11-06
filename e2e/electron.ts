@@ -11,6 +11,7 @@ import {checkOfflineFriends} from './friends-checks.ts';
 import {checkRunSaves,checkCorruptRecovery} from './run-save-checks.ts';
 import {checkEventAssets} from './event-checks.ts';
 import {checkAppearanceAssets} from './appearance-checks.ts';
+import {checkVictoryRegression} from './victory.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
 const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-e2e-'));
@@ -22,6 +23,7 @@ await mkdir('evidence',{recursive:true});
 let app: ElectronApplication | undefined;
 const errors: string[]=[],missing: {url:string;status:number}[]=[],external: string[]=[];
 try {
+  await checkVictoryRegression(game,executablePath,true);
   app=await electron.launch(options);
   let page=await app.firstWindow();
   if(executablePath)assert.equal(await app.evaluate(({app})=>app.getVersion()),metadata.offlineVersion,'Packaged native version must match offline release');
