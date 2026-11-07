@@ -41,9 +41,9 @@ export async function decodeAppearanceImages(page:Page) {
   // Native lazy loading starts only near the viewport. Visit each frame before
   // decoding so an offscreen image cannot leave the entire check pending.
   for(const image of await page.locator('.lk-card img').all()) {
-    await image.scrollIntoViewIfNeeded();
+    await image.scrollIntoViewIfNeeded({timeout:30000});
     try {
-      await page.waitForFunction(image=>image instanceof HTMLImageElement&&image.complete,await image.elementHandle(),{timeout:30000});
+      await page.waitForFunction(image=>image instanceof HTMLImageElement&&image.complete,await image.elementHandle({timeout:30000}),{timeout:30000});
     } catch(error) {
       const state=await image.evaluate(image=>image instanceof HTMLImageElement?{src:image.src,loading:image.loading,complete:image.complete,width:image.naturalWidth,top:image.getBoundingClientRect().top}:null);
       throw new Error('Appearance image did not finish loading: '+JSON.stringify(state),{cause:error});
