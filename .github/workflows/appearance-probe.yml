@@ -1,0 +1,90 @@
+name: Diagnose appearance flow
+
+on:
+  push:
+    branches: [codex/upstream-0.9.19]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appearance-probe
+  cancel-in-progress: true
+
+jobs:
+  appearance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
+        with:
+          version: 10.33.2
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm exec install-electron
+      - run: bash e2e/install-linux-desktop.sh
+        timeout-minutes: 6
+      - name: Prepare the exact offline game
+        run: |
+          pnpm build
+          node --import ./test/no-upstream-network.ts scripts/prepare-game.ts
+          node scripts/verify-game.ts
+      - name: Exercise the isolated native route
+        run: |
+          timeout --kill-after=10s 5m env DEBUG=pw:api xvfb-run -a node --input-type=module <<'JS'
+          import {_electron as electron} from 'playwright-core';
+          import {mkdtemp,rm} from 'node:fs/promises';
+          import os from 'node:os';import path from 'node:path';
+          import {checkAppearanceAssets} from './e2e/appearance-checks.ts';
+          import {dismissMenuNotices} from './e2e/game-checks.ts';
+          import {checkOfflineFriends} from './e2e/friends-checks.ts';
+          import {checkEventAssets} from './e2e/event-checks.ts';
+          const profile=await mkdtemp(path.join(os.tmpdir(),'appearance-probe-'));let app;
+          try {
+            app=await electron.launch({args:['dist/desktop/main.js','--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'],env:{...process.env,POKEBONK_GAME_DIR:path.resolve('build/game'),POKEBONK_USER_DATA_DIR:profile},timeout:120000});
+            const page=await app.firstWindow();page.setDefaultTimeout(30000);page.setDefaultNavigationTimeout(30000);
+            page.on('pageerror',e=>console.error('Renderer error',e));
+            page.on('response',r=>{if(r.status()>=400)console.error('HTTP failure',r.status(),r.url());});
+            await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
+            await dismissMenuNotices(page);
+            if(process.argv[2]==='direct') {
+              console.log('PROBE: direct appearance start');
+              await checkAppearanceAssets(page);
+              console.log('PROBE: direct appearance passed');
+            } else {
+            await checkOfflineFriends(page);
+            await checkEventAssets(page);
+            console.log('PROBE: desktop route start');
+            await page.locator('.dk-btn').click();
+            await page.locator('.dk-card .dk-ic svg').first().waitFor({state:'visible'});
+            await page.screenshot({path:'probe-desktop.png',timeout:10000});
+            await page.keyboard.press('Escape');
+            console.log('PROBE: appearance after desktop screenshot/Escape start');
+            await checkAppearanceAssets(page);
+            console.log('PROBE: appearance after desktop passed');
+            }
+          } catch(error) {
+            console.error('PROBE FAILURE:',error);
+            const p=app?.windows()[0];
+            if(p)await p.screenshot({path:'probe-failure.png',timeout:5000}).catch(e=>console.error('Screenshot failure',String(e)));
+            process.exitCode=1;
+          } finally {
+            if(app){await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows())w.destroy();});await app.close();}
+            await rm(profile,{recursive:true,force:true});
+          }
+          JS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: appearance-probe-evidence
+          path: |
+            probe-*.png
+            evidence/
+          if-no-files-found: ignore
+          retention-days: 3
