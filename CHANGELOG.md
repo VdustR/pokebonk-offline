@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.24
+
+### Patch Changes
+
+- Update the reviewed offline game to PokéBonk 0.9.19, including the new Abra, Gastly, and Pikachu treasure backgrounds and all twelve PNGs required by the animated treasure frames.
+
 ## 0.0.23
 
 ### Patch Changes

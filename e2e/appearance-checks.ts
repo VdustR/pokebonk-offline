@@ -38,12 +38,15 @@ export async function decodeAppearanceImages(page:Page) {
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('.lk-card img')).every(image=>
     image instanceof HTMLImageElement && Boolean(image.getAttribute('src')) && getComputedStyle(image).visibility!=='hidden'
   ),null,{timeout:30000});
-  await page.locator('.lk-card img').evaluateAll(async images=>{
-    await Promise.all(images.map(async image=>{
+  // Native lazy loading starts only near the viewport. Visit each frame before
+  // decoding so an offscreen image cannot leave the entire check pending.
+  for(const image of await page.locator('.lk-card img').all()) {
+    await image.scrollIntoViewIfNeeded();
+    await image.evaluate(async image=>{
       if(!(image instanceof HTMLImageElement))throw new Error('Invalid appearance image');
       try {await image.decode();}
       catch(error){throw new Error('Undecoded appearance image: '+image.src,{cause:error});}
       if(!image.naturalWidth)throw new Error('Undecoded appearance image: '+image.src);
-    }));
-  });
+    });
+  }
 }
