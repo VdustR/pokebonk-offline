@@ -70,7 +70,16 @@ try {
   await page.evaluate(()=>window.__pokebonkLocalApp.startRun({species:4,biome:'forest',tier:0,boosts:[]}));
   await page.waitForFunction(()=>(window.__pokebonkLocalApp.run?.time??0)>1,null,{timeout:90000});
   await page.keyboard.press('w');
-  await page.waitForFunction(()=>document.pointerLockElement?.tagName==='CANVAS');
+  // Upstream ignores user unlocks less than 700 ms after its actual acquisition.
+  // A canvas lock alone can still be a transient lock, so measure its own clock.
+  // See docs/desktop-minimize.md for the native timing probe and evidence.
+  await page.waitForFunction(()=>{
+    const input:unknown=Reflect.get(window.__pokebonkLocalApp,'input');
+    if(typeof input!=='object'||input===null)return false;
+    const lockedAt:unknown=Reflect.get(input,'lockedAt');
+    return document.pointerLockElement?.tagName==='CANVAS'&&window.__pokebonkLocalApp.run?.state==='play'
+      &&typeof lockedAt==='number'&&Number.isFinite(lockedAt)&&performance.now()-lockedAt>=700;
+  });
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0]?.minimize());
   await page.waitForFunction(()=>document.pointerLockElement===null&&window.__pokebonkLocalApp.run?.state==='paused');
   await app.evaluate(({app,BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];window?.restore();app.focus({steal:true});window?.focus();});
