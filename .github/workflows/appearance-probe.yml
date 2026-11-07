@@ -1,6 +1,8 @@
 name: Diagnose appearance flow
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [codex/upstream-0.9.19]
   workflow_dispatch:
