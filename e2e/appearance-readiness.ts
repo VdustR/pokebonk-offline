@@ -35,6 +35,32 @@ try {
     },2000);
   });
   await decodeAppearanceImages(page);
+  await page.evaluate(()=>{
+    const card=document.querySelector('.lk-card');
+    if(!card)throw new Error('Missing appearance fixture');
+    card.replaceChildren();
+    const spacer=document.createElement('div');spacer.style.height='10000px';
+    const image=new Image();image.loading='lazy';image.src='/valid.png?lazy-frame';
+    image.width=64;image.height=64;card.append(spacer,image);
+  });
+  assert.equal(await page.locator('.lk-card img').evaluate(image=>image instanceof HTMLImageElement&&image.complete),false,'Offscreen lazy frames must begin unloaded');
+  await Promise.race([
+    decodeAppearanceImages(page),
+    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('Lazy appearance frame was not scrolled into view')),5000))
+  ]);
+  await page.evaluate(()=>{
+    const style=document.createElement('style');
+    style.textContent='@keyframes appearanceMove{from{transform:translateX(0)}to{transform:translateX(100px)}}';
+    document.head.append(style);
+    const image=document.querySelector('.lk-card img');
+    if(!(image instanceof HTMLImageElement))throw new Error('Missing animated fixture image');
+    image.style.animation='appearanceMove 1s linear infinite';
+  });
+  await Promise.race([
+    decodeAppearanceImages(page),
+    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('Loaded animated appearance image waited for actionability')),5000))
+  ]);
+  await page.locator('.lk-card img').evaluate(image=>{if(image instanceof HTMLElement)image.style.animation='';});
   for(const src of ['/corrupt.png','/missing.png']) {
     await page.evaluate(src=>{
       const image=document.querySelector('.lk-card img');
@@ -43,7 +69,7 @@ try {
     },src);
     await assert.rejects(decodeAppearanceImages(page),/cannot be decoded|Undecoded appearance image/);
   }
-  console.log('Pending generated portraits wait for source readiness; corrupt and missing images still fail.');
+  console.log('Pending portraits, offscreen lazy frames and loaded animated images decode; corrupt and missing images still fail.');
 } finally {
   if(app){await app.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.destroy()});await app.close()}
   await rm(root,{recursive:true,force:true});

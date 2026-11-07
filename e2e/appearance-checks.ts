@@ -38,12 +38,30 @@ export async function decodeAppearanceImages(page:Page) {
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('.lk-card img')).every(image=>
     image instanceof HTMLImageElement && Boolean(image.getAttribute('src')) && getComputedStyle(image).visibility!=='hidden'
   ),null,{timeout:30000});
-  await page.locator('.lk-card img').evaluateAll(async images=>{
-    await Promise.all(images.map(async image=>{
+  // Only unloaded images need scrolling. Native DOM scrolling does not wait for
+  // animation stability, which is unrelated to whether a PNG can be decoded.
+  for(const image of await page.locator('.lk-card img').all()) {
+    const complete=await image.evaluate(image=>image instanceof HTMLImageElement&&image.complete);
+    if(!complete) {
+      await image.evaluate(image=>image.scrollIntoView({block:'center',behavior:'instant'}));
+      try {
+        await page.waitForFunction(image=>image instanceof HTMLImageElement&&image.complete,await image.elementHandle({timeout:30000}),{timeout:30000});
+      } catch(error) {
+        const state=await image.evaluate(image=>image instanceof HTMLImageElement?{src:image.src,loading:image.loading,complete:image.complete,width:image.naturalWidth,top:image.getBoundingClientRect().top}:null);
+        throw new Error('Appearance image did not finish loading: '+JSON.stringify(state),{cause:error});
+      }
+    }
+    await image.evaluate(async image=>{
       if(!(image instanceof HTMLImageElement))throw new Error('Invalid appearance image');
-      try {await image.decode();}
-      catch(error){throw new Error('Undecoded appearance image: '+image.src,{cause:error});}
+      let timer:number|undefined;
+      try {
+        await Promise.race([
+          image.decode(),
+          new Promise<never>((_,reject)=>{timer=window.setTimeout(()=>reject(new Error('Image decode deadline exceeded')),30000);})
+        ]);
+      } catch(error){throw new Error('Undecoded appearance image: '+image.src,{cause:error});}
+      finally {window.clearTimeout(timer);}
       if(!image.naturalWidth)throw new Error('Undecoded appearance image: '+image.src);
-    }));
-  });
+    });
+  }
 }
