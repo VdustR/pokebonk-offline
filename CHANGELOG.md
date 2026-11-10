@@ -1,5 +1,12 @@
 # pokebonk-offline-builder
 
+## 0.0.25
+
+### Patch Changes
+
+- Update the reviewed offline game to PokéBonk 0.9.22. Unlock the five Stellar cosmetic sets and include their artwork, animated models, and the new MP3 music fallback.
+- Update the open upstream tracker in place and create a new issue when a different build arrives after closure.
+
 ## 0.0.24
 
 ### Patch Changes

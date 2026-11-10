@@ -22,7 +22,7 @@ a generated output of acquisition, preparation, verification or promotion.
   inline platform SVGs and decodes all five computed CSS backgrounds. Network failures remain
   fatal; retries and missing-image reporting are not suppressed.
 
-The daily version check reports updates in a reusable issue. The separate manual sync deliberately holds upstream acquisition for dependency review.
+The daily version check reports builds through the [upstream version issue workflow](upstream-version-issues.md). The separate manual sync deliberately holds upstream acquisition for dependency review.
 Identity preflight reports a future upstream build as `review-required`, with
 `changed=true` and `eligible=false`, and records the accepted and detected versions
 in the workflow summary. Acquisition, validation and publication are skipped

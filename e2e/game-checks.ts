@@ -108,7 +108,7 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   await page.locator('.ls-tile').first().waitFor({state:'visible'});
   assert.equal(await page.locator('.ls-tile').count(),metadata.league);
   assert.ok((await page.locator('.ls-tile').evaluateAll(tiles=>tiles.map(tile=>tile.querySelectorAll('.ls-wins i').length))).every(count=>count===3));
-  await page.getByRole('button',{name:'超夢',exact:true}).click();
+  await page.locator('.ls-tile').and(page.getByRole('button',{name:'超夢',exact:true})).click();
   assert.equal(await page.locator('.ls-won').count(),3);
   assert.equal(await page.locator('.ls-won.on').count(),3);
   await page.waitForFunction(()=>(window.__pokebonkLocalApp.menuScene?.sprites.batches.get(150)?.mesh.count??0)>0);

@@ -12,7 +12,7 @@ The initial snapshot is upstream 0.8.78, build `mvtnhtpk`: 3,021 raw files, incl
 
 ## Workflow ownership
 
-1. **Detect:** The daily [version-issue workflow](upstream-version-issues.md) reports upstream changes in one pinned, reusable issue. It does not acquire or publish game files.
+1. **Detect:** The daily [version-issue workflow](upstream-version-issues.md) updates the open tracker or creates a new issue for a different build after closure. It does not acquire or publish game files.
 2. **Acquire:** A separate manually dispatched, read-only sync job checks the upstream identity. An unchanged build succeeds without acquisition. A changed, unreviewed build emits an error and exits with status 1 after recording the accepted/detected versions and review instructions. Reviewed inputs are collected into an isolated candidate, with per-build download caches and bounded body-aware retries. Failure leaves the committed snapshot unchanged.
 3. **Validate:** The reusable build workflow prepares that exact candidate with fetch disabled, verifies all payload hashes/catalogs, and runs the same native and platform checks as ordinary CI. Candidate builds cannot publish releases or receive Android signing secrets.
 4. **Commit:** A separate writer downloads the candidate and compares it with the digest returned by validation. It processes bytes/JSON only; it never evaluates upstream modules or installs dependencies. It commits only the vendored snapshot and uses a normal push to `main`. Concurrent main updates or branch protection cause the push to fail instead of overwriting work.

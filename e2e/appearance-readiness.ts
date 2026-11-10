@@ -39,14 +39,15 @@ try {
     const card=document.querySelector('.lk-card');
     if(!card)throw new Error('Missing appearance fixture');
     card.replaceChildren();
-    const spacer=document.createElement('div');spacer.style.height='10000px';
+    const spacer=document.createElement('div');spacer.style.cssText='height:10000px;overflow:clip;';
+    const clip=document.createElement('div');clip.style.cssText='height:0;overflow:clip;';
     const image=new Image();image.loading='lazy';image.src='/valid.png?lazy-frame';
-    image.width=64;image.height=64;card.append(spacer,image);
+    image.width=64;image.height=64;clip.append(image);card.append(spacer,clip);
   });
   assert.equal(await page.locator('.lk-card img').evaluate(image=>image instanceof HTMLImageElement&&image.complete),false,'Offscreen lazy frames must begin unloaded');
   await Promise.race([
     decodeAppearanceImages(page),
-    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('Lazy appearance frame was not scrolled into view')),5000))
+    new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('Lazy appearance frame did not decode')),5000))
   ]);
   await page.evaluate(()=>{
     const style=document.createElement('style');

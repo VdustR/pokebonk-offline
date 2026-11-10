@@ -12,6 +12,7 @@ import {checkRunSaves,checkCorruptRecovery} from './run-save-checks.ts';
 import {checkEventAssets} from './event-checks.ts';
 import {checkAppearanceAssets} from './appearance-checks.ts';
 import {checkVictoryRegression} from './victory.ts';
+import {checkStellarShop} from './stellar-checks.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
 const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-e2e-'));
@@ -72,6 +73,7 @@ try {
   });
   await page.screenshot({path:'evidence/electron-desktop-page.png'});
   await page.keyboard.press('Escape');
+  await checkStellarShop(page);
   await checkAppearanceAssets(page);
   await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true,focusPointerInput:async()=>{if(!app)throw new Error('Missing Electron application');await focusNativeInput(app);}});
   const restart=async(ready=true)=>{
