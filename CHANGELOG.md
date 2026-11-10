@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.25
+
+### Patch Changes
+
+- Update the open upstream tracker in place and create a new issue when a different build arrives after closure.
+
 ## 0.0.24
 
 ### Patch Changes

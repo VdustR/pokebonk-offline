@@ -12,7 +12,7 @@ function fixture() {
     get:number=>{const issue=issues.find(i=>i.number===number);if(!issue)throw Error('GitHub HTTP 404');return structuredClone(issue);},
     list:()=>structuredClone(issues),
     create:(_title,body)=>{mutations.push('create');const issue:VersionIssue={number:issues.length+1,body,state:'open',author:'github-actions[bot]',pullRequest:false};issues.push(issue);return structuredClone(issue);},
-    update:(number,body,state)=>{mutations.push('update');const issue=issues.find(i=>i.number===number);assert.ok(issue);Object.assign(issue,{body,state});return structuredClone(issue);},
+    update:(number,body,close)=>{mutations.push('update');const issue=issues.find(i=>i.number===number);assert.ok(issue);issue.body=body;if(close)issue.state='closed';return structuredClone(issue);},
   };return {issues,mutations,store};
 }
 test('new updates create one tracker and repeated checks do not write again',()=>{
@@ -22,13 +22,27 @@ test('new updates create one tracker and repeated checks do not write again',()=
   reconcileVersionIssue(repository,current,remote,f.store);
   assert.deepEqual(f.mutations,['create']);assert.equal(f.issues.length,1);
 });
-test('newer builds update the same closed issue and preserve human notes',()=>{
+test('newer builds update the same open issue and preserve human notes',()=>{
   const f=fixture();reconcileVersionIssue(repository,current,remote,f.store);const issue=f.issues[0];assert.ok(issue);
-  issue.state='closed';issue.body='Human context before.\n'+issue.body+'\nHuman context after.';
+  issue.body='Human context before.\n'+issue.body+'\nHuman context after.';
   reconcileVersionIssue(repository,current,{upstreamBuild:'newer',upstreamVersion:'0.9.14'},f.store);
   assert.equal(f.issues.length,1);assert.equal(issue.number,1);assert.equal(issue.state,'open');
   assert.match(issue.body,/0\.9\.14/);assert.match(issue.body,/newer/);
   assert.ok(issue.body.startsWith('Human context before.\n'));assert.ok(issue.body.endsWith('\nHuman context after.'));
+});
+test('closing a tracker archives that build and a later build starts a new issue',()=>{
+  const f=fixture();
+  const first=reconcileVersionIssue(repository,current,remote,f.store);
+  const closed=f.issues[0];assert.ok(closed);closed.state='closed';
+  const archived=structuredClone(closed);
+  assert.deepEqual(reconcileVersionIssue(repository,current,remote,f.store),{action:'unchanged',issue:first.issue});
+
+  const next={...remote,upstreamBuild:'hotfix'};
+  const second=reconcileVersionIssue(repository,current,next,f.store);
+  assert.deepEqual(second,{action:'created',issue:2});
+  assert.deepEqual(f.issues[0],archived);
+  assert.deepEqual(reconcileVersionIssue(repository,current,next,f.store),{action:'unchanged',issue:2});
+  assert.deepEqual(f.mutations,['create','create']);
 });
 test('current builds create nothing and close a previously tracked update',()=>{
   const f=fixture();reconcileVersionIssue(repository,current,current,f.store);assert.deepEqual(f.mutations,[]);
@@ -65,42 +79,45 @@ test('same-version upstream hotfixes still update the existing tracker',()=>{
   reconcileVersionIssue(repository,current,{...remote,upstreamBuild:'hotfix'},f.store);
   assert.equal(f.issues.length,1);assert.match(f.issues[0]?.body??'',/hotfix/);assert.deepEqual(f.mutations,['create','update']);
 });
-test('GitHub enumeration reaches an older tracker beyond the first page and excludes PR matches',()=>{
+const page=(nodes:unknown[],after:string|null=null)=>({
+  data:{repository:{issues:{nodes,pageInfo:{hasNextPage:after!==null,endCursor:after}}}},
+});
+test('GitHub discovery reads subsequent pages and refreshes the selected issue before writing',()=>{
   const f=fixture();reconcileVersionIssue(repository,current,remote,f.store);const tracker=f.issues[0];assert.ok(tracker);
-  const raw=(number:number,body:string)=>({number,body,state:'open',user:{login:'github-actions[bot]'}});
-  const page1=Array.from({length:100},(_,i)=>raw(i+1,i===0?tracker.body:'Unrelated issue'));
-  const calls:string[]=[];
-  const store=githubVersionIssues(repository,(method,endpoint)=>{
-    calls.push(method+' '+endpoint);assert.equal(method,'GET');
-    if(endpoint.endsWith('page=1'))return page1.map((issue,i)=>i===0?{...issue,pull_request:{url:'https://api.github.com/pulls/1'}}:issue);
-    if(endpoint.endsWith('page=2'))return [raw(101,tracker.body)];
+  const user={login:'github-actions[bot]'};
+  const store=githubVersionIssues(repository,(method,endpoint,payload)=>{
+    if(endpoint==='graphql'){
+      assert.equal(method,'POST');
+      return (payload?.['variables'] as {after:string|null}).after===null
+        ?page([{number:102,body:'Unrelated issue',state:'OPEN',user}],'page-2')
+        :page([{number:101,body:tracker.body,state:'CLOSED',user:{__typename:'Bot',login:'github-actions'}}]);
+    }
+    if(method==='GET'&&endpoint.endsWith('/101'))return {number:101,body:tracker.body,state:'open',user};
+    if(method==='PATCH'&&endpoint.endsWith('/101')){
+      assert.deepEqual(Object.keys(payload??{}),['body']);
+      return {number:101,body:payload?.['body'],state:'open',user};
+    }
     throw Error('Unexpected request');
   });
-  assert.deepEqual(reconcileVersionIssue(repository,current,remote,store),{action:'unchanged',issue:101});
-  assert.equal(calls.length,2);assert.ok(calls.every(c=>c.includes('state=all')));
+  assert.deepEqual(reconcileVersionIssue(repository,current,{...remote,upstreamBuild:'hotfix'},store),{action:'updated',issue:101});
 });
-test('partial pagination and malformed API responses fail before any mutation',()=>{
-  for(const fail of ['second-page','malformed']) {
-    const writes:string[]=[];
-    const store=githubVersionIssues(repository,(method,endpoint)=>{
-      if(method!=='GET'){writes.push(method);throw Error('Unexpected mutation');}
+test('partial pagination and malformed API responses fail before any issue mutation',()=>{
+  for(const fail of ['second-page','malformed','graphql-errors']) {
+    const store=githubVersionIssues(repository,(method,endpoint,payload)=>{
+      assert.equal(method,'POST');assert.equal(endpoint,'graphql');
       if(fail==='malformed')return {message:'Access denied'};
-      if(endpoint.endsWith('page=1'))return Array.from({length:100},(_,i)=>({number:i+1,body:'',state:'closed',user:{login:'github-actions[bot]'}}));
+      if(fail==='graphql-errors')return {...page([]),errors:[{message:'Partial response'}]};
+      if((payload?.['variables'] as {after:string|null}).after===null)return page([],'page-2');
       throw Error('GitHub HTTP 403');
     });
-    assert.throws(()=>reconcileVersionIssue(repository,current,remote,store),fail==='malformed'?/array/:/403/);assert.deepEqual(writes,[]);
+    assert.throws(()=>reconcileVersionIssue(repository,current,remote,store),fail==='second-page'?/403/:/GitHub/);
   }
 });
-test('a pinned tracker is reused even while the issue listing is stale',()=>{
-  const f=fixture();const first=reconcileVersionIssue(repository,current,remote,f.store);assert.ok(first.issue);
-  const stale={...f.store,list:()=>{throw Error('The pinned workflow must not enumerate issues');}};
-  assert.deepEqual(reconcileVersionIssue(repository,current,remote,stale,first.issue),{action:'unchanged',issue:first.issue});
-  reconcileVersionIssue(repository,current,{...remote,upstreamBuild:'hotfix'},stale,first.issue);
-  assert.equal(f.issues.length,1);assert.deepEqual(f.mutations,['create','update']);
-});
-test('an inaccessible or replaced pinned tracker never falls back to creation',()=>{
-  const f=fixture();assert.throws(()=>reconcileVersionIssue(repository,current,remote,f.store,404),/404/);
-  f.issues.push({number:30,body:'Human issue',state:'open',author:'VdustR',pullRequest:false});
-  assert.throws(()=>reconcileVersionIssue(repository,current,remote,f.store,30),/owned tracker/);
-  assert.deepEqual(f.mutations,[]);
+test('an inaccessible or replaced selected tracker never falls back to creation',()=>{
+  const f=fixture();reconcileVersionIssue(repository,current,remote,f.store);
+  assert.throws(()=>reconcileVersionIssue(repository,current,remote,{...f.store,get:()=>{throw Error('GitHub HTTP 404');}}),/404/);
+  assert.throws(()=>reconcileVersionIssue(repository,current,remote,{...f.store,get:()=>({
+    number:1,body:'Human issue',state:'open',author:'VdustR',pullRequest:false,
+  })}),/owned tracker/);
+  assert.deepEqual(f.mutations,['create']);
 });
