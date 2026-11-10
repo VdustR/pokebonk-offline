@@ -59,7 +59,7 @@ async function download(resource: string, optional = false): Promise<Buffer | nu
     downloaded=true;
   }
   if (!bytes) throw new Error(`No bytes downloaded: ${url}`);
-  if (/\.(png|jpg|glb|ogg|woff2?)$/.test(key) && bytes.subarray(0, 100).toString().includes('<!doctype html')) {
+  if (/\.(png|jpg|glb|ogg|mp3|woff2?)$/.test(key) && bytes.subarray(0, 100).toString().includes('<!doctype html')) {
     if (optional) { missing.push(key); return null; }
     throw new Error(`HTML returned for binary asset: ${key}`);
   }
@@ -117,7 +117,7 @@ const resourceVersion = (key: string) => {
 };
 const assets = new Map<string, boolean>();
 const add = (key: string, optional = false) => {
-  if (!/^[\w./-]+\.(png|jpg|json|glb|ogg|svg|webp)$/.test(key) || key.includes('..')) throw new Error(`Invalid catalog path: ${key}`);
+  if (!/^[\w./-]+\.(png|jpg|json|glb|ogg|mp3|svg|webp)$/.test(key) || key.includes('..')) throw new Error(`Invalid catalog path: ${key}`);
   assets.set(key, assets.has(key) ? (assets.get(key) ?? false) && optional : optional);
 };
 for (const key of Object.keys(info.versions).filter(key => key.startsWith('data/'))) add(key);
@@ -162,7 +162,7 @@ const allTrees = [ast(main), ast(config),...(menus===main?[]:[info.tree])];
 const strings = allTrees.flatMap(tree => nodes(tree, n => typeof literal(n) === 'string').map(literal).filter((value): value is string => typeof value === 'string'));
 for (const value of strings) {
   if (/^(?:tower|halloween|desert|glacier|coast|ruins?|storm|frost|sanct)_[a-z_]+$/.test(value)) add(`assets/models/${value}.glb`, true);
-  if (/^(?:env|ui|items|models|music|portraits|pmd)\/[\w./-]+\.(png|jpg|glb|ogg|json)$/.test(value)) add('assets/' + value);
+  if (/^(?:env|ui|items|models|music|portraits|pmd)\/[\w./-]+\.(png|jpg|glb|ogg|mp3|json)$/.test(value)) add('assets/' + value);
   if (/^(tr|frame|bg|sym|deco):[\w-]+$/.test(value)) {
     const [kind, id] = value.split(':');
     const dir = new Map([['tr','ui/avatars'],['frame','ui/frames'],['bg','ui/banners'],['sym','ui/clan/sym'],['deco','ui/clan/deco']]).get(kind ?? '');

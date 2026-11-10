@@ -110,7 +110,7 @@ export function patchGame(main: string,config: string,template: string,menus?:{s
   for(const [name,value]of Object.entries(info.aliases))shim=shim.replaceAll(`__${name.toUpperCase()}__`,value);
   shim=shim.replaceAll('__EVENTS__',JSON.stringify(info.events)).replaceAll('__MEDALS__',String(info.medalRanks.length));
   const lists=Object.values(info.values).filter(objectArray);
-  const cosmetics=[...new Set(lists.flatMap(list=>list.flatMap(entry=>[entry['id'],...(objectArray(entry['prizes'])?entry['prizes'].map(prize=>prize['id']):[])])).filter((id):id is string=>typeof id==='string'&&/^(tr|frame|bg|title|sym|deco|skin):/.test(id)))];
+  const cosmetics=[...new Set(lists.flatMap(list=>list.flatMap(entry=>[entry['id'],...(objectArray(entry['prizes'])?entry['prizes'].map(prize=>prize['id']):[])])).filter((id):id is string=>typeof id==='string'&&/^(tr|frame|bg|title|sym|deco|skin|slook):/.test(id)))];
   const preparations=one(lists.filter(value=>value.every(item=>item['id']&&item['desc'])&&value.some(item=>item['id']==='rare-candy')),'preparation catalog').map(item=>text(item['id']));
   shim=shim.replaceAll('__COSMETICS__',JSON.stringify(cosmetics)).replaceAll('__PREPARATIONS__',JSON.stringify(preparations));
   if(shim.includes('__TREASURES__'))shim=shim.replaceAll('__TREASURES__',JSON.stringify(inspectTreasureCatalog(config)));

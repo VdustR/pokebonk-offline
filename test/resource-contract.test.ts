@@ -8,7 +8,13 @@ const png='assets/ui/icons/exp-bag.png',webp='assets/ui/desktop/forest.webp';
 test('requirements remain independent of a self-consistent downloaded-file manifest',async()=>{
   const contract=await readResourceContract(),{files}=await readSnapshot();
   assertRequiredResources(new Set(files.keys()),contract);
-  for(const missing of [png,webp,'assets/env/iris/tiles/grass.png','assets/ui/relics/r-comet.png','assets/ui/frames/top100.png','assets/ui/frames/type-fire.png','assets/ui/frames/mon-master.png']) {
+  const stellar=['sakura','abyss','kintsugi','vitral','dawn'].flatMap(set=>[
+    `assets/ui/banners/st-${set}.jpg`,`assets/ui/banners/st-${set}-glow.png`,
+    `assets/ui/frames/st-${set}.png`,`assets/models/epic_${set}.glb`,
+  ]);
+  const music=['menu','halloween-menu','johto-menu','ingame1','ingame2','ingame3','ingame4','ingame5','boss']
+    .map(track=>`assets/music/${track}.mp3`);
+  for(const missing of [...stellar,...music,png,webp,'assets/env/iris/tiles/grass.png','assets/ui/relics/r-comet.png','assets/ui/frames/top100.png','assets/ui/frames/type-fire.png','assets/ui/frames/mon-master.png']) {
     const inventory=new Set(files.keys());inventory.delete(missing);
     assert.throws(()=>assertRequiredResources(inventory,contract),/Missing required resource/);
   }

@@ -8,7 +8,7 @@ export const snapshotDirectory='vendor/pokebonk';
 const sha=(bytes:string|Buffer)=>createHash('sha256').update(bytes).digest('hex');
 const safeName=(value:unknown)=>{
   const name=text(value,'snapshot path');
-  if(!/^[\w/-][\w./-]*\.(?:html|js|css|json|png|jpg|svg|webp|ico|webmanifest|woff2?|glb|ogg)$/.test(name)
+  if(!/^[\w/-][\w./-]*\.(?:html|js|css|json|png|jpg|svg|webp|ico|webmanifest|woff2?|glb|ogg|mp3)$/.test(name)
     ||name.startsWith('/')||name.split('/').some(part=>!part||part.startsWith('.')))throw new Error('Invalid snapshot path');
   return name;
 };
