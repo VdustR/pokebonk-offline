@@ -15,3 +15,25 @@ jobs:
       - name: Verify command-scoped signed mirror selection
         timeout-minutes: 6
         run: bash e2e/install-linux-desktop.sh
+      - name: Verify fallback and retained acquisition failure
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          python3 - <<'PYPROBE'
+          from pathlib import Path
+          import subprocess,tempfile
+          source=Path('e2e/install-linux-desktop.sh').read_text()
+          needle="  'https://mirrors.edge.kernel.org/ubuntu/' 1 "
+          assert source.count(needle)==1
+          with tempfile.TemporaryDirectory() as directory:
+              script=Path(directory)/'installer.sh'
+              script.write_text(source.replace(needle,"  'https://127.0.0.1:9/ubuntu/' 0 "+chr(92)+chr(10)+needle))
+              subprocess.run(['bash',str(script)],check=True)
+              broken=source
+              for host in ['mirrors.edge.kernel.org','archive.ubuntu.com','security.ubuntu.com']:
+                  broken=broken.replace('https://'+host+'/ubuntu/','https://127.0.0.1:9/ubuntu/')
+              script.write_text(broken)
+              result=subprocess.run(['bash',str(script)])
+              assert result.returncode != 0,'Unreachable mirrors must still fail acquisition'
+              print('Fallback passed; all-unreachable mirror configuration rejected')
+          PYPROBE
