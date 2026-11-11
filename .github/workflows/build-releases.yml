@@ -14,7 +14,11 @@ concurrency:
 jobs:
   probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: [1, 2, 3]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -55,39 +59,8 @@ jobs:
           })();
           POKEBONK_STORAGE_OBSERVER
           cat > storage-trace.mjs <<'POKEBONK_STORAGE_TRACE'
-          import {_electron as electron} from 'playwright-core';
-          import {mkdir,writeFile,cp,access} from 'node:fs/promises';import path from 'node:path';import os from 'node:os';
-          const output=path.resolve('evidence/storage-trace');await mkdir(output,{recursive:true});
-          const originalLaunch=electron.launch.bind(electron);let serial=0;
-          electron.launch=async function(options){
-           const app=await originalLaunch(options),id=++serial,originalEvaluate=app.evaluate.bind(app),originalClose=app.close.bind(app),nativeProcess=app.process();
-           const requested=options?.env?.POKEBONK_USER_DATA_DIR;
-           const capture=async reason=>{
-            try{
-             const paths=await originalEvaluate(({app,session})=>({userData:app.getPath('userData'),sessionData:app.getPath('sessionData'),storage:session.defaultSession.storagePath,packaged:app.isPackaged}));
-             const pages=[];
-             for(const page of app.windows())pages.push(await page.evaluate(()=>({url:location.href,initial:window.__storageStart,events:window.__storageEvents,values:Object.fromEntries(['pb.runsave.local-sandbox','pb.runauto.local-sandbox','pokebonk.local.pending.v1','pokebonk.local.profile.v1'].map(key=>[key,localStorage.getItem(key)])),run:window.__pokebonkLocalApp?.run?{state:window.__pokebonkLocalApp.run.state,time:window.__pokebonkLocalApp.run.time}:null,activeTicket:window.__pokebonkLocalApp?.backend?.activeTicket})).catch(error=>({error:String(error)})));
-             await writeFile(path.join(output,`${id}-${reason}.json`),JSON.stringify({id,reason,requested,paths,pages},null,2));
-            }catch(error){await writeFile(path.join(output,`${id}-${reason}-error.json`),JSON.stringify({error:String(error)}));}
-           };
-           app.evaluate=async function(fn,arg){if(typeof fn==='function'&&fn.toString().includes('.destroy()'))await capture('before-destroy');return originalEvaluate(fn,arg);};
-           app.close=async function(...args){
-            if(app.windows().length)await capture('before-close');
-            try{return await originalClose(...args);}finally{
-             try {
-             const relative=typeof requested==='string'?path.relative(os.tmpdir(),requested):null;
-             if(relative&&!relative.startsWith('..')&&!path.isAbsolute(relative)&&path.basename(requested).startsWith('pokebonk-')&&(nativeProcess.exitCode!==null||nativeProcess.signalCode!==null)){
-              const cold=path.join(output,`${id}-cold`);await mkdir(cold,{recursive:true});
-              for(const name of ['Local Storage','Session Storage','Preferences','Local State']){
-               const source=path.join(requested,name);
-               if(await access(source).then(()=>true,()=>false))await cp(source,path.join(cold,name),{recursive:true});
-              }
-             }
-             }catch(error){console.error('Cold storage capture failed:',String(error));await writeFile(path.join(output,`${id}-cold-error.json`),JSON.stringify({error:String(error)})).catch(()=>{});}
-            }
-           };
-           return app;
-          };
+          import {writeFileSync,mkdirSync} from 'node:fs';
+          process.on('exit',()=>{mkdirSync('evidence',{recursive:true});writeFileSync('evidence/storage-save-checks.json',JSON.stringify(globalThis.__storageSaveChecks??[],null,2));});
           POKEBONK_STORAGE_TRACE
           python3 - <<'PY_INSTRUMENT'
           from pathlib import Path
@@ -107,17 +80,25 @@ jobs:
           shutil.copyfile('storage-observer.js',resources/'storage-probe.js')
           p=resources/'index.html';html=p.read_text();assert '<head>' in html
           p.write_text(html.replace('<head>','<head>\n<script src="storage-probe.js"></script>',1))
-          source=Path('e2e/electron.ts').read_text()
-          needle="  page=await checkRunSaves(page,()=>restart(),async()=>{if(!app)throw Error('Missing native application');await focusNativeInput(app);});"
-          assert source.count(needle)==1
-          source=source.replace(needle,"  for(let storageCycle=0;storageCycle<5;storageCycle++) {\n    console.log('Storage diagnostic cycle',storageCycle);\n"+needle+"\n  }")
+          source=Path('e2e/electron.ts').read_text().replace("from './run-save-checks.ts'","from './run-save-checks-storage.ts'")
           Path('e2e/electron-storage-loop.ts').write_text(source)
+          checks=Path('e2e/run-save-checks.ts').read_text()
+          needle='return {raw:localStorage.getItem(key),time:body.summary.time};'
+          assert checks.count(needle)==1
+          checks=checks.replace(needle,"return {raw:localStorage.getItem(key),time:body.summary.time,trace:{initial:window.__storageStart,events:window.__storageEvents,values:Object.fromEntries(['pb.runsave.local-sandbox','pb.runauto.local-sandbox','pokebonk.local.pending.v1','pokebonk.local.profile.v1'].map(key=>[key,localStorage.getItem(key)]))}};")
+          needle='    page=await restart();'
+          assert checks.count(needle)==1
+          checks=checks.replace(needle,"    (globalThis.__storageSaveChecks??=[]).push({stage:'before-restart',kind,saved});\n"+needle)
+          needle="    assert.equal(await page.evaluate(key=>localStorage.getItem(key),key),saved.raw,'Startup must preserve the saved blob');"
+          assert checks.count(needle)==1
+          checks=checks.replace(needle,"    const observed=await page.evaluate(key=>({raw:localStorage.getItem(key),trace:{initial:window.__storageStart,events:window.__storageEvents,values:Object.fromEntries(['pb.runsave.local-sandbox','pb.runauto.local-sandbox','pokebonk.local.pending.v1','pokebonk.local.profile.v1'].map(key=>[key,localStorage.getItem(key)]))}}),key);\n    (globalThis.__storageSaveChecks??=[]).push({stage:'after-restart',kind,observed});\n    assert.equal(observed.raw,saved.raw,'Startup must preserve the saved blob');")
+          Path('e2e/run-save-checks-storage.ts').write_text(checks)
           PY_INSTRUMENT
           xvfb-run -a node --import ./storage-trace.mjs e2e/electron-storage-loop.ts build/game 'packaged/Pokebonk Offline-linux-x64/Pokebonk Offline'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: storage-startup-evidence
+          name: storage-startup-evidence-${{ matrix.attempt }}
           path: evidence/
           if-no-files-found: ignore
           retention-days: 3
