@@ -1,6 +1,17 @@
 import type {Page} from 'playwright-core';
 import assert from 'node:assert/strict';
+import {writeFile} from 'node:fs/promises';
 import {dismissMenuNotices} from './game-checks.ts';
+
+function readRunStorage(key:string) {
+  return {
+    raw:localStorage.getItem(key),
+    profile:localStorage.getItem('pokebonk.local.profile.v1'),
+    pending:localStorage.getItem('pokebonk.local.pending.v1'),
+    manual:localStorage.getItem('pb.runsave.local-sandbox'),
+    auto:localStorage.getItem('pb.runauto.local-sandbox'),
+  };
+}
 
 // Both restarts terminate the actual native process and reopen its disposable
 // profile. A renderer reload cannot prove a saved run survives process loss.
@@ -21,21 +32,28 @@ export async function checkRunSaves(page:Page,restart:()=>Promise<Page>,focus:()
       await page.waitForFunction(()=>localStorage.getItem('pb.runauto.local-sandbox')!==null,null,{timeout:15000});
     }
     const key=kind==='manual'?'pb.runsave.local-sandbox':'pb.runauto.local-sandbox';
-    const saved=await page.evaluate(key=>{
-      const raw:unknown=JSON.parse(localStorage.getItem(key)??'null');
-      if(typeof raw!=='object'||raw===null||!('save' in raw)||typeof raw.save!=='string')throw Error('Missing saved run');
-      const body:unknown=JSON.parse(raw.save);
-      if(typeof body!=='object'||body===null||!('summary' in body)||typeof body.summary!=='object'||body.summary===null||!('time' in body.summary)||typeof body.summary.time!=='number')throw Error('Missing saved time');
-      return {raw:localStorage.getItem(key),time:body.summary.time};
-    },key);
+    const before=await page.evaluate(readRunStorage,key);
+    const raw:unknown=JSON.parse(before.raw??'null');
+    if(typeof raw!=='object'||raw===null||!('save' in raw)||typeof raw.save!=='string')throw Error('Missing saved run');
+    const body:unknown=JSON.parse(raw.save);
+    if(typeof body!=='object'||body===null||!('summary' in body)||typeof body.summary!=='object'||body.summary===null||!('time' in body.summary)||typeof body.summary.time!=='number')throw Error('Missing saved time');
+    const saved={raw:before.raw,time:body.summary.time};
     page=await restart();
     // A restarted process has a new native focus target. Establish it before
     // sending the recovery click, as for the initial gameplay input checks.
     await focus();
-    assert.equal(await page.evaluate(key=>localStorage.getItem(key),key),saved.raw,'Startup must preserve the saved blob');
-    // This resumes a scene in the same document. Chromium's post-input
-    // navigation epilogue can stall with the CI software-GPU notice behind it.
-    // Wait for actual recovery below instead of an unrelated navigation.
+    const after=await page.evaluate(readRunStorage,key);
+    try {
+      assert.equal(after.raw,saved.raw,'Startup must preserve the saved blob');
+    } catch(error) {
+      // These are disposable acceptance profiles. Capture the related storage
+      // only after failure so diagnostics do not delay the shutdown under test.
+      await writeFile('evidence/electron-run-save-failure.json',JSON.stringify({kind,key,before,after},null,2))
+        .catch(captureError=>console.error('Run-save failure capture failed:',captureError));
+      throw error;
+    }
+    // This resumes a scene in the same document. Verify the actual restored
+    // simulation below without waiting for an unrelated navigation.
     await page.locator('.sv-card').getByRole('button',{name:'繼續',exact:true}).click({noWaitAfter:true});
     const restoreStarted=Date.now();
     // Observe the owning document and simulation together. A locator-world

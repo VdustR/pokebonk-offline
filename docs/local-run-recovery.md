@@ -48,6 +48,14 @@ real autosave checkpoint producer before process loss and verifies recovery and
 that settled saves are not offered again. Real user-profile preservation is a
 separate release/install gate.
 
+If startup changes the saved blob, acceptance records the pre-restart and
+post-startup save, profile and pending-settlement values in
+`evidence/electron-run-save-failure.json`, then preserves the original failure.
+The snapshots use the existing storage-read calls; the evidence file is written
+only after a mismatch, so diagnostics do not delay the shutdown under test.
+These values come only from disposable acceptance profiles. A mismatch alone
+does not establish whether storage loss or application cleanup caused it.
+
 Startup validates existing recovery envelopes before exposing a playable profile
 or persisting normalization. A damaged or incompatible save therefore cannot be
 silently replaced by starting another run. Known durable settlements are
