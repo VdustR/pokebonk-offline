@@ -8,21 +8,20 @@ if [[ "$ID" != ubuntu || "$VERSION_ID" != 24.04 || "$(dpkg --print-architecture)
   exit 1
 fi
 
-# The runner mirror list can stall on Azure. Use signed official HTTPS sources
-# for these commands only; leave runner-wide repository and trust settings intact.
+# Keep acquisition scoped to this command and signed by Ubuntu's existing keyring.
+# Independent HTTPS mirrors avoid coupling every suite to one DNS domain.
 sources=$(mktemp --suffix=.sources)
-trap 'rm -f "$sources"' EXIT
-chmod 644 "$sources"
-cat > "$sources" <<'SOURCES'
+mirrors=$(mktemp --suffix=.mirrors)
+trap 'rm -f "$sources" "$mirrors"' EXIT
+chmod 644 "$sources" "$mirrors"
+printf '%s\tpriority:%s\n' \
+  'https://mirrors.edge.kernel.org/ubuntu/' 1 \
+  'https://archive.ubuntu.com/ubuntu/' 2 \
+  'https://security.ubuntu.com/ubuntu/' 3 > "$mirrors"
+cat > "$sources" <<SOURCES
 Types: deb
-URIs: https://archive.ubuntu.com/ubuntu
-Suites: noble noble-updates
-Components: main universe
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-
-Types: deb
-URIs: https://security.ubuntu.com/ubuntu
-Suites: noble-security
+URIs: mirror+file:$mirrors
+Suites: noble noble-updates noble-security
 Components: main universe
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 SOURCES

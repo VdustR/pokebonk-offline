@@ -12,11 +12,6 @@ jobs:
     timeout-minutes: 9
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - name: Verify the same signed Ubuntu suites through the kernel.org mirror
+      - name: Verify command-scoped signed mirror selection
         timeout-minutes: 6
-        shell: bash
-        run: |
-          probe=$(mktemp --suffix=.sh)
-          trap 'rm -f "$probe"' EXIT
-          sed -e 's|https://archive.ubuntu.com/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' -e 's|https://security.ubuntu.com/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' e2e/install-linux-desktop.sh > "$probe"
-          bash "$probe"
+        run: bash e2e/install-linux-desktop.sh
