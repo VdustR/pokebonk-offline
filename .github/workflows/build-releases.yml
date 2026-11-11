@@ -1,69 +1,124 @@
-name: Offline apps
+name: Saved-run startup diagnostic
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: offline-${{ github.event.pull_request.number || 'release' }}
+  group: saved-run-startup-diagnostic
   cancel-in-progress: false
 
 jobs:
-  validate:
-    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
-    uses: ./.github/workflows/build-game.yml
-    with:
-      publish: false
-
-  build:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/build-game.yml
-    with:
-      publish: true
-    secrets:
-      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-
-  release:
-    needs: build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.build.outputs.changed == 'true'
+  probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
+        with:
+          version: 10.33.2
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: bash e2e/install-linux-desktop.sh
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          path: artifacts
-      - name: Publish complete release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.build.outputs.tag }}
-          TITLE: ${{ needs.build.outputs.title }}
+          name: game
+          path: build/game
+          run-id: 43039566955
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: desktop-linux-x64
+          path: package-artifact
+          run-id: 43039566955
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+      - name: Trace the actual packaged save boundary after the original suite prefix
         run: |
           set -euo pipefail
-          mkdir release
-          cp artifacts/desktop-*/* artifacts/android/*.apk release/
-          test "$(find release -type f | wc -l)" -eq 5
-          node scripts/release-notes.ts artifacts/game/offline-build.json notes.md release/release-info.json
-          (cd release && sha256sum * > SHA256SUMS.txt && sha256sum --check SHA256SUMS.txt)
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft > existing.txt 2>/dev/null; then
-            test "$(cat existing.txt)" = true
-            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber release/*
-          else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "$TITLE" --notes-file notes.md release/*
-          fi
-          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" -eq 7
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          node scripts/verify-game.ts build/game
+          cat > storage-observer.js <<'POKEBONK_STORAGE_OBSERVER'
+          (() => {
+           const keys=['pb.runsave.local-sandbox','pb.runauto.local-sandbox','pokebonk.local.pending.v1','pokebonk.local.profile.v1'];
+           const get=Storage.prototype.getItem,set=Storage.prototype.setItem,remove=Storage.prototype.removeItem,clear=Storage.prototype.clear;
+           window.__storageStart=Object.fromEntries(keys.map(key=>[key,get.call(localStorage,key)]));window.__storageEvents=[];
+           const sample=(operation,key,value)=>{if(keys.includes(key)||operation==='clear')window.__storageEvents.push({operation,key,bytes:value?.length??null,value,wall:Date.now(),stack:new Error().stack});};
+           Storage.prototype.setItem=function(key,value){sample('set',key,value);return set.call(this,key,value);};
+           Storage.prototype.removeItem=function(key){sample('remove',key,get.call(this,key));return remove.call(this,key);};
+           Storage.prototype.clear=function(){sample('clear','*',null);return clear.call(this);};
+          })();
+          POKEBONK_STORAGE_OBSERVER
+          cat > storage-trace.mjs <<'POKEBONK_STORAGE_TRACE'
+          import {_electron as electron} from 'playwright-core';
+          import {mkdir,writeFile,cp,access} from 'node:fs/promises';import path from 'node:path';import os from 'node:os';
+          const output=path.resolve('evidence/storage-trace');await mkdir(output,{recursive:true});
+          const originalLaunch=electron.launch.bind(electron);let serial=0;
+          electron.launch=async function(options){
+           const app=await originalLaunch(options),id=++serial,originalEvaluate=app.evaluate.bind(app),originalClose=app.close.bind(app),nativeProcess=app.process();
+           const requested=options?.env?.POKEBONK_USER_DATA_DIR;
+           const capture=async reason=>{
+            try{
+             const paths=await originalEvaluate(({app,session})=>({userData:app.getPath('userData'),sessionData:app.getPath('sessionData'),storage:session.defaultSession.storagePath,packaged:app.isPackaged}));
+             const pages=[];
+             for(const page of app.windows())pages.push(await page.evaluate(()=>({url:location.href,initial:window.__storageStart,events:window.__storageEvents,values:Object.fromEntries(['pb.runsave.local-sandbox','pb.runauto.local-sandbox','pokebonk.local.pending.v1','pokebonk.local.profile.v1'].map(key=>[key,localStorage.getItem(key)])),run:window.__pokebonkLocalApp?.run?{state:window.__pokebonkLocalApp.run.state,time:window.__pokebonkLocalApp.run.time}:null,activeTicket:window.__pokebonkLocalApp?.backend?.activeTicket})).catch(error=>({error:String(error)})));
+             await writeFile(path.join(output,`${id}-${reason}.json`),JSON.stringify({id,reason,requested,paths,pages},null,2));
+            }catch(error){await writeFile(path.join(output,`${id}-${reason}-error.json`),JSON.stringify({error:String(error)}));}
+           };
+           app.evaluate=async function(fn,arg){if(typeof fn==='function'&&fn.toString().includes('.destroy()'))await capture('before-destroy');return originalEvaluate(fn,arg);};
+           app.close=async function(...args){
+            if(app.windows().length)await capture('before-close');
+            try{return await originalClose(...args);}finally{
+             try {
+             const relative=typeof requested==='string'?path.relative(os.tmpdir(),requested):null;
+             if(relative&&!relative.startsWith('..')&&!path.isAbsolute(relative)&&path.basename(requested).startsWith('pokebonk-')&&(nativeProcess.exitCode!==null||nativeProcess.signalCode!==null)){
+              const cold=path.join(output,`${id}-cold`);await mkdir(cold,{recursive:true});
+              for(const name of ['Local Storage','Session Storage','Preferences','Local State']){
+               const source=path.join(requested,name);
+               if(await access(source).then(()=>true,()=>false))await cp(source,path.join(cold,name),{recursive:true});
+              }
+             }
+             }catch(error){console.error('Cold storage capture failed:',String(error));await writeFile(path.join(output,`${id}-cold-error.json`),JSON.stringify({error:String(error)})).catch(()=>{});}
+            }
+           };
+           return app;
+          };
+          POKEBONK_STORAGE_TRACE
+          python3 - <<'PY_INSTRUMENT'
+          from pathlib import Path
+          import json,tarfile,shutil
+          archives=list(Path('package-artifact').glob('*.tar.gz'));assert len(archives)==1
+          out=Path('packaged');out.mkdir()
+          with tarfile.open(archives[0]) as archive:
+              for member in archive.getmembers():
+                  name=Path(member.name);assert not name.is_absolute() and '..' not in name.parts
+              archive.extractall(out,filter='data')
+          packages=list(out.iterdir());assert len(packages)==1
+          resources=packages[0]/'resources/game'
+          info=json.loads((resources/'offline-build.json').read_text())
+          assert info['upstreamVersion']=='0.9.23' and info['upstreamBuild']=='mwaj5w8h' and info['offlineVersion']=='0.0.25'
+          assert info['sourceDigest']=='47aea4dcf10c1f17fe0d3479badf7f6dfd14ad59de388e26bb37cc2d2bec068c'
+          assert info==json.loads(Path('build/game/offline-build.json').read_text())
+          shutil.copyfile('storage-observer.js',resources/'storage-probe.js')
+          p=resources/'index.html';html=p.read_text();assert '<head>' in html
+          p.write_text(html.replace('<head>','<head>\n<script src="storage-probe.js"></script>',1))
+          source=Path('e2e/electron.ts').read_text()
+          needle="  page=await checkRunSaves(page,()=>restart(),async()=>{if(!app)throw Error('Missing native application');await focusNativeInput(app);});"
+          assert source.count(needle)==1
+          source=source.replace(needle,"  for(let storageCycle=0;storageCycle<5;storageCycle++) {\n    console.log('Storage diagnostic cycle',storageCycle);\n"+needle+"\n  }")
+          Path('e2e/electron-storage-loop.ts').write_text(source)
+          PY_INSTRUMENT
+          xvfb-run -a node --import ./storage-trace.mjs e2e/electron-storage-loop.ts build/game 'packaged/Pokebonk Offline-linux-x64/Pokebonk Offline'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: storage-startup-evidence
+          path: evidence/
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 6
