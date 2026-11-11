@@ -8,20 +8,21 @@ if [[ "$ID" != ubuntu || "$VERSION_ID" != 24.04 || "$(dpkg --print-architecture)
   exit 1
 fi
 
-# The runner mirror list can stall on Azure. Use signed official HTTPS sources
-# for these commands only; leave runner-wide repository and trust settings intact.
+# Native mirror-list failover can stall after fetching signed Release metadata.
+# Use the kernel.org Ubuntu HTTPS mirror with the existing Ubuntu signing key;
+# keep acquisition command-scoped and leave runner-wide settings intact.
 sources=$(mktemp --suffix=.sources)
 trap 'rm -f "$sources"' EXIT
 chmod 644 "$sources"
 cat > "$sources" <<'SOURCES'
 Types: deb
-URIs: https://archive.ubuntu.com/ubuntu
+URIs: https://mirrors.edge.kernel.org/ubuntu
 Suites: noble noble-updates
 Components: main universe
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 
 Types: deb
-URIs: https://security.ubuntu.com/ubuntu
+URIs: https://mirrors.edge.kernel.org/ubuntu
 Suites: noble-security
 Components: main universe
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
