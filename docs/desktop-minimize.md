@@ -41,3 +41,25 @@ The maintained TypeScript probe also passed all four cases against a Linux x64 p
 The unchanged full-game fullscreen flow passed menu/settings enter/exit, native minimize release/pause, restore-keeps-paused and resume-reacquires capture. Full type checking, 60 compiler probes and 105 unit tests passed. The test/documentation changes leave the packaged-source digest unchanged; the release policy therefore retains the current offline version and requires no new binary.
 
 The packaged forest integration also passed native pointer capture, camera movement, Escape pause, resume reacquisition, map release/pause and map-close reacquisition, plus a live persisted checkpoint. These checks retain the adjacent pause behavior independently of the stable-minimize probe.
+
+## Restore completion before resumed input
+
+The 0.9.23 candidate's packaged Linux smoke reached paused gameplay after minimization, then timed out when resuming capture. The artifact recorded a ready boot and no renderer exceptions, but did not record native window focus, so the unique hosted failure's exact timing remains unproven.
+
+A controlled Ubuntu 24.04 amd64/Openbox/Electron 45 probe delayed the actual native restore by 400 ms. DOM focus remained true while the native window was minimized and both the window and its web contents were unfocused. The original restore/focus/DOM-wait ordering dispatched resume in that state and failed capture. Waiting for native restoration and then acquiring both native focus states passed; repeating the original ordering failed again. This establishes a test precondition defect without changing the upstream game's input behavior.
+
+`restoreNativeInput` waits for the [Electron 45 restore event and minimized state](https://github.com/electron/electron/blob/v45.0.0/docs/api/base-window.md#event-restore), then uses the existing window/web-contents focus helper. The original paused-state and pointer reacquisition assertions and their timeouts remain intact. Failure evidence now includes native minimized and focus states.
+
+`e2e/restore-input.ts` isolates this boundary with a small local pointer-lock fixture through the development shell's production window/permission code. It repeats delayed native restoration twice, asserts native readiness separately from successful capture, and rejects a permanently withheld restore. The development fullscreen smoke invokes it before gameplay checks. Packaged apps intentionally ignore alternate game directories, so packaged acceptance exercises the same restore helper through the complete bundled game instead. The fixture rejects packaged mode explicitly.
+
+```sh
+CI=1 bash e2e/with-linux-desktop.sh node e2e/restore-input.ts
+# Linux negative control: expected to fail native-readiness/capture assertions.
+RESTORE_CHECK_DOM_ONLY=1 CI=1 bash e2e/with-linux-desktop.sh node e2e/restore-input.ts
+```
+
+The maintained fixture passed both positive trials and withheld-restore rejection on macOS arm64 and on emulated Ubuntu amd64. The original-order Linux control failed with native minimized/unfocused state and absent pointer capture. The four-trial initial full-game experiment completed fail/pass/fail for restore, but its fourth trial timed out earlier at the separate minimize/pause prerequisite; that trial supplies no restore conclusion. Full hosted platform acceptance remains required.
+
+Packaged acceptance also establishes native window and web-contents focus before its first trusted gameplay key and verifies native focus at the minimize request. A local macOS package reproduced an initial capture timeout while native focus was absent; the focused flow passed. The isolated fixture's API accepts no packaged executable, and checks `app.isPackaged === false`, preserving the packaged shell's intentional refusal to load an alternate game directory.
+
+Menu labels have a separate asynchronous boundary: the upstream fullscreen-change callback updates the button after DOM/native fullscreen state can already change. The smoke waits up to five seconds for its nonempty entered label and restored initial label, then keeps the original assertions. A current-build native control delayed only that real label listener by 1.5 seconds; both transitions passed with the waits, while a permanently withheld label update still rejected. Repeating the delayed control passed again. No label, input or pause behavior is patched in the distributed game.

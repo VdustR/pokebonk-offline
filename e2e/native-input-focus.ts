@@ -1,5 +1,22 @@
 import type {ElectronApplication} from 'playwright-core';
 
+export async function restoreNativeInput(application:ElectronApplication):Promise<void> {
+  await application.evaluate(async({BrowserWindow})=>{
+    const window=BrowserWindow.getAllWindows()[0];
+    if(!window)throw new Error('Missing native input window');
+    if(!window.isMinimized())return;
+    await new Promise<void>((resolve,reject)=>{
+      const cleanup=()=>{clearTimeout(deadline);window.removeListener('restore',check);};
+      const check=()=>{if(!window.isMinimized()){cleanup();resolve();}};
+      const deadline=setTimeout(()=>{cleanup();reject(new Error('Native input window did not restore'));},5000);
+      window.on('restore',check);
+      try {window.restore();check();} catch(error) {cleanup();reject(error);}
+    });
+  });
+  // Focus requests made while minimized can be ignored even when DOM focus is true.
+  await focusNativeInput(application);
+}
+
 export async function focusNativeInput(application:ElectronApplication):Promise<void> {
   await application.evaluate(async({app,BrowserWindow})=>{
     const window=BrowserWindow.getAllWindows()[0];
