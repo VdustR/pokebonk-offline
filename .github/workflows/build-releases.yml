@@ -12,13 +12,11 @@ jobs:
     timeout-minutes: 9
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - name: Compare affected domains with acquisition controls
+      - name: Verify the same signed Ubuntu suites through the kernel.org mirror
+        timeout-minutes: 6
         shell: bash
         run: |
-          set -u
-          for host in github.com azure.archive.ubuntu.com mirrors.edge.kernel.org archive.ubuntu.com security.ubuntu.com; do
-            printf '\nDNS: %s\n' "$host"
-            timeout 5 getent ahostsv4 "$host" || true
-            printf '\nHTTPS: %s\n' "$host"
-            curl --head --fail --silent --show-error --max-time 8 "https://$host/" || true
-          done
+          probe=$(mktemp --suffix=.sh)
+          trap 'rm -f "$probe"' EXIT
+          sed -e 's|https://archive.ubuntu.com/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' -e 's|https://security.ubuntu.com/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' e2e/install-linux-desktop.sh > "$probe"
+          bash "$probe"
