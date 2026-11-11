@@ -56,6 +56,15 @@ only after a mismatch, so diagnostics do not delay the shutdown under test.
 These values come only from disposable acceptance profiles. A mismatch alone
 does not establish whether storage loss or application cleanup caused it.
 
+On a native acceptance failure, `evidence/electron-storage-failure.json` also
+records the requested and actual session paths, Linux storage file descriptors,
+and available disk space. After the original native close sequence and confirmed
+process exit, acceptance copies its own disposable storage database and preference
+files to `evidence/electron-cold-profile/`. It never copies a different native
+profile path. Capture errors are reported without replacing the original test
+failure. These observations and copies occur only after failure; they do not add
+an observation or delay before the save restart under test.
+
 Startup validates existing recovery envelopes before exposing a playable profile
 or persisting normalization. A damaged or incompatible save therefore cannot be
 silently replaced by starting another run. Known durable settlements are

@@ -1,7 +1,9 @@
 import {parseMetadata} from '../types/metadata.ts';
 import type {ElectronApplication} from 'playwright-core';
 import {_electron as electron} from 'playwright-core';
-import {readFile,mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
+import {readFile,mkdtemp,rm,mkdir,writeFile,cp,lstat} from 'node:fs/promises';
+import {readdirSync,readlinkSync,statfsSync} from 'node:fs';
+import type {StatsFs} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -22,6 +24,7 @@ const options={env:{...process.env,POKEBONK_GAME_DIR:game,POKEBONK_USER_DATA_DIR
 if(process.env['CI'] && process.platform==='linux')options.args.push('--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader');
 await mkdir('evidence',{recursive:true});
 let app: ElectronApplication | undefined;
+let failed=false;
 const errors: string[]=[],missing: {url:string;status:number}[]=[],external: string[]=[];
 try {
   await checkVictoryRegression(game,executablePath,true);
@@ -95,21 +98,72 @@ try {
   await writeFile('evidence/electron-network.json',JSON.stringify({gameRequests,missing,errors,networkBlocked:true},null,2));
   console.log('Electron runtime, unlocks, persistence and network isolation passed.');
 } catch(error) {
-  if(app) {
-    const pages=app.windows();
-    const page=pages[0];
-    if(page) {
-      await page.screenshot({path:'evidence/electron-failure.png'}).catch(()=>{});
-      await writeFile('evidence/electron-failure.json',JSON.stringify({errors,missing,external,url:page.url(),runtime:await page.evaluate(()=>({visibility:document.visibilityState,focused:document.hasFocus(),savedDialogs:document.querySelectorAll('.sv-card').length,run:window.__pokebonkLocalApp?.run?{state:window.__pokebonkLocalApp.run.state,time:window.__pokebonkLocalApp.run.time}:null})).catch(()=>null),text:await page.locator('body').innerText().catch(()=>''),error:String(error)},null,2));
+  failed=true;
+  try {
+    if(app) {
+      // Inspect only after failure: observing shutdown itself can change a race.
+      const nativeProcess=app.process(),descriptors:string[]=[],captureErrors:string[]=[];
+      if(process.platform==='linux'&&nativeProcess.pid) {
+        try {
+          for(const fd of readdirSync(`/proc/${nativeProcess.pid}/fd`)) {
+            try {
+              const target=readlinkSync(`/proc/${nativeProcess.pid}/fd/${fd}`);
+              if(target.includes('/Local Storage/')||target.includes('/Session Storage/'))descriptors.push(target);
+            } catch(captureError) {
+              if(typeof captureError!=='object'||captureError===null||!('code' in captureError)||captureError.code!=='ENOENT')captureErrors.push(String(captureError));
+            }
+          }
+        } catch(captureError) {captureErrors.push(String(captureError));}
+      }
+      let disk:StatsFs|undefined;
+      try {disk=statfsSync(userData);}catch(captureError){captureErrors.push(String(captureError));}
+      let timer:ReturnType<typeof setTimeout>|undefined;
+      const paths=await Promise.race([
+        app.evaluate(({app,session})=>({requested:process.env['POKEBONK_USER_DATA_DIR'],userData:app.getPath('userData'),sessionData:app.getPath('sessionData'),storage:session.defaultSession.storagePath,persistent:session.defaultSession.isPersistent()})),
+        new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('Native storage-path capture timed out')),5000);}),
+      ]).catch(captureError=>({captureError:String(captureError)})).finally(()=>clearTimeout(timer));
+      await writeFile('evidence/electron-storage-failure.json',JSON.stringify({error:String(error),pid:nativeProcess.pid,paths,descriptors,captureErrors,diskFreeBytes:disk?disk.bavail*disk.bsize:null,diskFreeInodes:disk?.ffree??null},null,2));
+      const pages=app.windows();
+      const page=pages[0];
+      if(page) {
+        await page.screenshot({path:'evidence/electron-failure.png'}).catch(()=>{});
+        await writeFile('evidence/electron-failure.json',JSON.stringify({errors,missing,external,url:page.url(),runtime:await page.evaluate(()=>({visibility:document.visibilityState,focused:document.hasFocus(),savedDialogs:document.querySelectorAll('.sv-card').length,run:window.__pokebonkLocalApp?.run?{state:window.__pokebonkLocalApp.run.state,time:window.__pokebonkLocalApp.run.time}:null})).catch(()=>null),text:await page.locator('body').innerText().catch(()=>''),error:String(error)},null,2));
+      }
     }
-  }
+  } catch(captureError) {console.error('Native failure capture failed:',captureError);}
   throw error;
 } finally {
   if(app) {
+    const nativeProcess=app.process();
+    // The exit wait is failure-only and follows the original close sequence.
+    const exited=failed?new Promise<void>(resolve=>{
+      if(nativeProcess.exitCode!==null||nativeProcess.signalCode!==null)resolve();
+      else nativeProcess.once('close',()=>resolve());
+    }):undefined;
     // Test profiles are disposable. Bypass gameplay beforeunload dialogs so a
     // failed assertion remains visible instead of a teardown dialog race.
     await app.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.destroy();});
     await app.close();
+    if(exited) {
+      let timer:ReturnType<typeof setTimeout>|undefined;
+      try {
+        await Promise.race([exited,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('Native process did not exit before storage capture')),10000);})]);
+        assert.ok(path.basename(userData).startsWith('pokebonk-e2e-')&&path.dirname(userData)===os.tmpdir());
+        // Copy only the owned acceptance profile, even if native paths differ.
+        const destination='evidence/electron-cold-profile';
+        await mkdir(destination,{recursive:true});
+        for(const name of ['Local Storage','Session Storage','Preferences','Local State']) {
+          const source=path.join(userData,name);
+          const entry=await lstat(source).catch(captureError=>{
+            if(typeof captureError==='object'&&captureError!==null&&'code' in captureError&&captureError.code==='ENOENT')return null;
+            throw captureError;
+          });
+          if(entry)await cp(source,path.join(destination,name),{recursive:true});
+        }
+        await writeFile(path.join(destination,'native-exit.json'),JSON.stringify({exitCode:nativeProcess.exitCode,signalCode:nativeProcess.signalCode},null,2));
+      } catch(captureError) {console.error('Cold storage capture failed:',captureError);}
+      finally {clearTimeout(timer);}
+    }
   }
   await rm(userData,{recursive:true,force:true});
 }
