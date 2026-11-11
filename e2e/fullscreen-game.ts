@@ -5,10 +5,13 @@ import path from 'node:path';
 import os from 'node:os';
 import assert from 'node:assert/strict';
 import {dismissMenuNotices} from './game-checks.ts';
+import {restoreNativeInput} from './native-input-focus.ts';
+import {checkRestoreInput} from './restore-input.ts';
 
-const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-fullscreen-game-'));
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
+await checkRestoreInput(executablePath);
+const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-fullscreen-game-'));
 const args=executablePath?[]:['dist/desktop/main.js'];
 if(process.env['CI']&&process.platform==='linux')args.push('--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader');
 const app=await electron.launch({args,...(executablePath?{executablePath:path.resolve(executablePath)}:{}),env:{...process.env,POKEBONK_GAME_DIR:game,POKEBONK_USER_DATA_DIR:userData},timeout:120000}).catch(async error=>{await rm(userData,{recursive:true,force:true});throw error;});
@@ -82,7 +85,7 @@ try {
   });
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0]?.minimize());
   await page.waitForFunction(()=>document.pointerLockElement===null&&window.__pokebonkLocalApp.run?.state==='paused');
-  await app.evaluate(({app,BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];window?.restore();app.focus({steal:true});window?.focus();});
+  await restoreNativeInput(app);
   await page.waitForFunction(()=>document.hasFocus());
   assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.run?.state),'paused');
   await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
@@ -94,7 +97,8 @@ try {
   if(page) {
     await mkdir('evidence',{recursive:true});
     await page.screenshot({path:'evidence/fullscreen-game-failure.png'}).catch(()=>{});
-    await writeFile('evidence/fullscreen-game-failure.json',JSON.stringify({error:String(error),startupErrors,url:page.url(),text:await page.locator('body').innerText().catch(()=>''),boot:await page.evaluate(()=>Reflect.get(window,'__pokebonkSmokeBootState')).catch(()=>null)},null,2));
+    const native=await app.evaluate(({BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];return window?{minimized:window.isMinimized(),focused:window.isFocused(),contentsFocused:window.webContents.isFocused()}:null;}).catch(()=>null);
+    await writeFile('evidence/fullscreen-game-failure.json',JSON.stringify({error:String(error),startupErrors,native,url:page.url(),text:await page.locator('body').innerText().catch(()=>''),boot:await page.evaluate(()=>Reflect.get(window,'__pokebonkSmokeBootState')).catch(()=>null)},null,2));
   }
   throw error;
 } finally {
