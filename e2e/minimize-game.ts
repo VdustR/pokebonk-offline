@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 import {dismissMenuNotices} from './game-checks.ts';
 import {focusNativeInput,restoreNativeInput} from './native-input-focus.ts';
-import {waitForPauseEligibleCapture} from './pause-capture.ts';
+import {readGameCapture,waitForPauseEligibleCapture} from './pause-capture.ts';
 
 type Sample={event:string;wall:number;now:number;pointer:string|null;focus:boolean;hidden:boolean;visibility:string;state:string|null;time:number|null;locked:boolean;lockedAt:number|null;unlockAt:number|null;resumedAt:number|null;resumedFrom:string|null;flicker:boolean|null};
 declare global {
@@ -17,6 +17,9 @@ declare global {
     __minimizeNative():Promise<void>;
     __minimizeTriggered?:boolean;
     __minimizeDelayedHandlers:number;
+    __minimizeHoldAcquisition:boolean;
+    __minimizePendingAcquisitions:(()=>void)[];
+    __minimizeReleaseAcquisition():void;
   }
 }
 export async function checkMinimizeInput(executable?:string,modes:readonly string[]=[],game=path.resolve('build/game')) {
@@ -34,13 +37,19 @@ for(const [index,mode] of (modes.length?modes:['immediate','stable','immediate',
     const running=app,page=await app.firstWindow();
     await page.addInitScript(delayed=>{
       window.__minimizeDelayedHandlers=0;
+      window.__minimizeHoldAcquisition=false;
+      window.__minimizePendingAcquisitions=[];
+      window.__minimizeReleaseAcquisition=()=>{
+        window.__minimizeHoldAcquisition=false;
+        for(const deliver of window.__minimizePendingAcquisitions.splice(0))deliver();
+      };
       if(delayed) {
         const original=document.addEventListener;
         document.addEventListener=function(this:Document,type:string,listener:EventListenerOrEventListenerObject,options?:boolean|AddEventListenerOptions) {
           if(type==='pointerlockchange'&&typeof listener==='function'&&listener.toString().includes('this.lockedAt=performance.now')) {
             window.__minimizeDelayedHandlers++;
             return original.call(this,type,function(this:Document,event:Event) {
-              if(document.pointerLockElement)setTimeout(()=>{listener.call(this,event);window.__minimizeSample('delayed-input-handler');},1300);
+              if(document.pointerLockElement&&window.__minimizeHoldAcquisition)window.__minimizePendingAcquisitions.push(()=>{listener.call(this,event);window.__minimizeSample('released-input-handler');});
               else listener.call(this,event);
             },options);
           }
@@ -62,7 +71,7 @@ for(const [index,mode] of (modes.length?modes:['immediate','stable','immediate',
     },delayed);
     await page.reload();
     await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
-    if(delayed)assert.equal(await page.evaluate(()=>window.__minimizeDelayedHandlers),1,'Delay only the actual input acquisition consumer');
+    if(delayed)assert.equal(await page.evaluate(()=>window.__minimizeDelayedHandlers),1,'Control only the actual input acquisition consumer');
     await app.evaluate(({BrowserWindow})=>{
       const window=BrowserWindow.getAllWindows()[0];if(!window)throw new Error('Missing native window');
       const events:{event:string;wall:number;minimized:boolean;visible:boolean;focused:boolean}[]=[];
@@ -80,9 +89,10 @@ for(const [index,mode] of (modes.length?modes:['immediate','stable','immediate',
     await page.evaluate(()=>window.__pokebonkLocalApp.startRun({species:4,biome:'forest',tier:0,boosts:[]}));
     await page.waitForFunction(()=>(window.__pokebonkLocalApp.run?.time??0)>1,null,{timeout:90000});
     if(delayed) {
+      await waitForPauseEligibleCapture(page);
       await page.evaluate(()=>window.__pokebonkLocalApp.run?.pause());
-      await page.waitForFunction(()=>document.pointerLockElement===null&&window.__pokebonkLocalApp.run?.state==='paused');
-      await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());
+      await page.waitForFunction(()=>{const sample=window.__minimizeSample('paused-ready');return sample.pointer===null&&sample.state==='paused'&&!sample.locked;});
+      await page.evaluate(()=>{window.__minimizeHoldAcquisition=true;window.__pokebonkLocalApp.run?.resume();});
     }else {
       // Isolate lock age from transition/resume guards in the original modes.
       await page.evaluate(()=>{
@@ -107,16 +117,30 @@ for(const [index,mode] of (modes.length?modes:['immediate','stable','immediate',
     await page.keyboard.press('w');
     if(mode==='immediate')await page.waitForFunction(()=>window.__minimizeTriggered===true,null,{polling:50});
     else {
-      if(legacy)await page.waitForFunction(resumeOnly=>{const sample=window.__minimizeSample('legacy-precondition');return sample.pointer==='CANVAS'&&sample.state==='play'&&sample.lockedAt!==null&&sample.now-sample.lockedAt>=700&&(!resumeOnly||(sample.resumedAt!==null&&sample.now-sample.resumedAt>=(sample.resumedFrom==='modal'?1500:800)));},mode==='ack-resume-only');
-      else await waitForPauseEligibleCapture(page);
+      if(delayed) {
+        await page.waitForFunction(resumeOnly=>{const sample=window.__minimizeSample('held-precondition');return sample.pointer==='CANVAS'&&sample.state==='play'&&sample.lockedAt!==null&&sample.now-sample.lockedAt>=700&&(!resumeOnly||(sample.resumedAt!==null&&sample.now-sample.resumedAt>=(sample.resumedFrom==='modal'?1500:800)));},mode!=='ack-legacy');
+        const held=await readGameCapture(page);
+        const queued=await page.evaluate(()=>window.__minimizePendingAcquisitions.length);
+        result['held']=held;result['queuedAcquisitions']=queued;
+        assert.equal(held.locked,false);assert.equal(held.eligible,false);
+        assert.ok(queued>0,'The actual acquisition consumer must be held');
+        if(!legacy)await page.evaluate(()=>window.__minimizeReleaseAcquisition());
+      }
+      if(!legacy)await waitForPauseEligibleCapture(page);
       await page.evaluate(()=>window.__minimizeSample('before-minimize'));
       await minimize();
+      if(legacy) {
+        await page.waitForFunction(()=>document.pointerLockElement===null,null,{timeout:1500,polling:50});
+        await page.evaluate(()=>window.__minimizeReleaseAcquisition());
+      }
     }
     // A bounded observation window; the smoke test keeps its original timeout.
     await new Promise(resolve=>setTimeout(resolve,1500));
     const native=await app.evaluate(({BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];return {events:Reflect.get(globalThis,'minimizeNativeEvents') as unknown,minimized:window?.isMinimized(),visible:window?.isVisible(),focused:window?.isFocused()};});
     const after=await page.evaluate(()=>window.__minimizeSample('after-minimize'));
-    result['native']=native;result['after']=after;result['samples']=await page.evaluate(()=>window.__minimizeSamples);
+    const delivery=await page.evaluate(()=>({samples:window.__minimizeSamples,pending:window.__minimizePendingAcquisitions.length}));
+    result['native']=native;result['after']=after;result['samples']=delivery.samples;result['pendingAcquisitions']=delivery.pending;
+    assert.equal(delivery.pending,0,'Forward every queued acquisition callback');
     assert.equal(native.minimized,true);assert.equal(after.pointer,null);
     assert.notEqual(after.lockedAt,null);assert.notEqual(after.unlockAt,null);
     if(after.lockedAt===null||after.unlockAt===null)throw new Error('Missing actual input timestamps');
