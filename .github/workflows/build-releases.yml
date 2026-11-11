@@ -1,24 +1,20 @@
-name: Saved-run startup diagnostic
-
+name: Native storage lifecycle diagnostic
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
   actions: read
-
 concurrency:
   group: saved-run-startup-diagnostic
   cancel-in-progress: false
-
 jobs:
   probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        attempt: [1, 2, 3]
+        attempt: [1, 2]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -36,69 +32,34 @@ jobs:
           run-id: 43039566955
           github-token: ${{ github.token }}
           digest-mismatch: error
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: desktop-linux-x64
-          path: package-artifact
-          run-id: 43039566955
-          github-token: ${{ github.token }}
-          digest-mismatch: error
-      - name: Trace the actual packaged save boundary after the original suite prefix
+      - name: Build and verify the unchanged game
+        run: |
+          pnpm exec install-electron
+          pnpm build
+          node scripts/verify-game.ts build/game
+      - name: Generate the observational lifecycle driver
+        run: |
+          python3 - <<'PY_DRIVER'
+          from pathlib import Path
+          Path('e2e/electron-storage-lifecycle.ts').write_text('import {parseMetadata} from \'../types/metadata.ts\';\nimport type {ElectronApplication} from \'playwright-core\';\nimport {_electron as electron} from \'playwright-core\';\nimport {readFile,mkdtemp,rm,mkdir,writeFile,cp,access} from \'node:fs/promises\';\nimport os from \'node:os\';\nimport path from \'node:path\';\nimport assert from \'node:assert/strict\';\nimport {checkGame,dismissMenuNotices} from \'./game-checks.ts\';\nimport {focusNativeInput} from \'./native-input-focus.ts\';\nimport {checkOfflineFriends} from \'./friends-checks.ts\';\nimport {checkRunSaves,checkCorruptRecovery} from \'./run-save-checks.ts\';\nimport {checkEventAssets} from \'./event-checks.ts\';\nimport {checkAppearanceAssets} from \'./appearance-checks.ts\';\nimport {checkVictoryRegression} from \'./victory.ts\';\nimport {checkStellarShop} from \'./stellar-checks.ts\';\nconst game=path.resolve(process.argv[2]??\'build/game\');\nconst executablePath=process.argv[3];\nconst userData=await mkdtemp(path.join(os.tmpdir(),\'pokebonk-e2e-\'));\nconst metadata=parseMetadata(JSON.parse(await readFile(path.join(game,\'offline-build.json\'),\'utf8\')));\nconst options={env:{...process.env,POKEBONK_GAME_DIR:game,POKEBONK_USER_DATA_DIR:userData},timeout:120000,args:executablePath?[]:[\'dist/desktop/main.js\'],...(executablePath?{executablePath:path.resolve(executablePath)}:{})};\n// SwiftShader is required for headless Linux; macOS uses its native Metal backend.\nif(process.env[\'CI\'] && process.platform===\'linux\')options.args.push(\'--no-sandbox\',\'--use-gl=angle\',\'--use-angle=swiftshader\',\'--enable-unsafe-swiftshader\');\nawait mkdir(\'evidence\',{recursive:true});\nlet app: ElectronApplication | undefined;\nconst storageLifecycle:unknown[]=[];\nconst errors: string[]=[],missing: {url:string;status:number}[]=[],external: string[]=[];\ntry {\n  await checkVictoryRegression(game,executablePath,true);\n  app=await electron.launch(options);\n  let page=await app.firstWindow();\n  if(executablePath)assert.equal(await app.evaluate(({app})=>app.getVersion()),metadata.offlineVersion,\'Packaged native version must match offline release\');\n  const isolation=await app.evaluate(({BrowserWindow})=>{\n    const window=BrowserWindow.getAllWindows()[0];\n    if(!window)throw new Error(\'No Electron window\');\n    // Electron exposes this runtime method without a public declaration.\n    const read: unknown=Reflect.get(window.webContents,\'getLastWebPreferences\');\n    if(typeof read!==\'function\')throw new Error(\'Missing Electron preferences probe\');\n    const value: unknown=read.call(window.webContents);\n    if(typeof value!==\'object\'||value===null)throw new Error(\'Invalid Electron preferences\');\n    const p=value as Record<string,unknown>;\n    return {sandbox:p[\'sandbox\'],nodeIntegration:p[\'nodeIntegration\'],contextIsolation:p[\'contextIsolation\'],webSecurity:p[\'webSecurity\']};\n  });\n  assert.deepEqual(isolation,{sandbox:true,nodeIntegration:false,contextIsolation:true,webSecurity:true});\n  const observe=(page:import(\'playwright-core\').Page)=>{\n  page.on(\'pageerror\',e=>errors.push(e.message));\n  page.on(\'response\',r=>{if(r.status()>=400)missing.push({url:r.url(),status:r.status()});});\n  page.on(\'request\',r=>{if(/^(https?|wss?):/.test(r.url()))external.push(r.url());});\n  };\n  observe(page);\n  await app.evaluate(({app,BrowserWindow})=>{app.focus({steal:true});BrowserWindow.getAllWindows()[0]?.focus();});\n  await page.waitForFunction(()=>document.hasFocus());\n  await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});\n  await dismissMenuNotices(page);\n  await checkOfflineFriends(page);\n  await checkEventAssets(page);\n  await page.locator(\'.dk-btn\').click();\n  await page.locator(\'.dk-card .dk-ic svg\').first().waitFor({state:\'visible\'});\n  assert.equal(await page.locator(\'.dk-card .dk-ic svg\').count(),4);\n  await page.locator(\'.dk-scr img\').evaluateAll(async images=>{\n    await Promise.all(images.map(async image=>{\n      if(!(image instanceof HTMLImageElement))throw new Error(\'Invalid desktop page image\');\n      await image.decode();\n      if(!image.naturalWidth)throw new Error(\'Undecoded desktop page image: \'+image.src);\n    }));\n  });\n  assert.equal(await page.locator(\'.dk-bg\').count(),5);\n  await page.locator(\'.dk-bg\').evaluateAll(async backgrounds=>{\n    await Promise.all(backgrounds.map(async element=>{\n      const url=/^url\\(["\']?(.*?)["\']?\\)$/.exec(getComputedStyle(element).backgroundImage)?.[1];\n      if(!url)throw new Error(\'Missing desktop CSS background\');\n      const image=new Image();image.src=url;await image.decode();\n      if(!image.naturalWidth)throw new Error(\'Undecoded desktop CSS background: \'+url);\n    }));\n  });\n  await page.screenshot({path:\'evidence/electron-desktop-page.png\'});\n  await page.keyboard.press(\'Escape\');\n  await checkStellarShop(page);\n  await checkAppearanceAssets(page);\n  await checkGame(page,metadata,executablePath?\'electron-packaged\':\'electron\',{pointerLock:true,focusPointerInput:async()=>{if(!app)throw new Error(\'Missing Electron application\');await focusNativeInput(app);}});\n  const restart=async(ready=true)=>{\n    if(!app)throw Error(\'Missing native application\');\n    const nativeProcess=app.process();\n    const storagePaths=await app.evaluate(({app,session,BrowserWindow})=>{\n      const paths={pid:process.pid,requested:process.env[\'POKEBONK_USER_DATA_DIR\'],userData:app.getPath(\'userData\'),sessionData:app.getPath(\'sessionData\'),storage:session.defaultSession.storagePath,persistent:session.defaultSession.isPersistent(),packaged:app.isPackaged,urls:BrowserWindow.getAllWindows().map(window=>window.webContents.getURL())};\n      for(const window of BrowserWindow.getAllWindows())window.destroy();return paths;\n    });\n    storageLifecycle.push({stage:\'destroy\',paths:storagePaths});\n    await app.close();storageLifecycle.push({stage:\'closed\',pid:nativeProcess.pid,exitCode:nativeProcess.exitCode,signalCode:nativeProcess.signalCode});app=await electron.launch(options);\n    const next=await app.firstWindow();observe(next);\n    if(ready){\n      await next.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});\n      await next.locator(\'.mm-nav\').waitFor({state:\'visible\',timeout:30000});\n    }\n    return next;\n  };\n  page=await checkRunSaves(page,()=>restart(),async()=>{if(!app)throw Error(\'Missing native application\');await focusNativeInput(app);});\n  page=await checkCorruptRecovery(page,()=>restart(false));\n  assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);\n  const gameRequests=[...external];\n  assert.equal(await page.evaluate(()=>fetch(\'https://example.com/\').then(()=>false,()=>true)),true,\'Network must be blocked\');\n  await writeFile(\'evidence/electron-network.json\',JSON.stringify({gameRequests,missing,errors,networkBlocked:true},null,2));\n  console.log(\'Electron runtime, unlocks, persistence and network isolation passed.\');\n} catch(error) {\n  if(app) {\n    const pages=app.windows();\n    const page=pages[0];\n    if(page) {\n      await page.screenshot({path:\'evidence/electron-failure.png\'}).catch(()=>{});\n      await writeFile(\'evidence/electron-failure.json\',JSON.stringify({errors,missing,external,url:page.url(),runtime:await page.evaluate(()=>({visibility:document.visibilityState,focused:document.hasFocus(),savedDialogs:document.querySelectorAll(\'.sv-card\').length,run:window.__pokebonkLocalApp?.run?{state:window.__pokebonkLocalApp.run.state,time:window.__pokebonkLocalApp.run.time}:null})).catch(()=>null),text:await page.locator(\'body\').innerText().catch(()=>\'\'),error:String(error)},null,2));\n    }\n  }\n  throw error;\n} finally {\n  if(app) {\n    // Test profiles are disposable. Bypass gameplay beforeunload dialogs so a\n    // failed assertion remains visible instead of a teardown dialog race.\n    const nativeProcess=app.process();\n    const storagePaths=await app.evaluate(({app,session,BrowserWindow})=>{\n      const paths={pid:process.pid,requested:process.env[\'POKEBONK_USER_DATA_DIR\'],userData:app.getPath(\'userData\'),sessionData:app.getPath(\'sessionData\'),storage:session.defaultSession.storagePath,persistent:session.defaultSession.isPersistent(),packaged:app.isPackaged,urls:BrowserWindow.getAllWindows().map(window=>window.webContents.getURL())};\n      for(const window of BrowserWindow.getAllWindows())window.destroy();return paths;\n    });\n    storageLifecycle.push({stage:\'destroy\',paths:storagePaths});\n    await app.close();storageLifecycle.push({stage:\'closed\',pid:nativeProcess.pid,exitCode:nativeProcess.exitCode,signalCode:nativeProcess.signalCode});\n  }\n  try {\n    await writeFile(\'evidence/storage-lifecycle.json\',JSON.stringify(storageLifecycle,null,2));\n    assert.ok(path.basename(userData).startsWith(\'pokebonk-e2e-\')&&path.dirname(userData)===os.tmpdir());\n    await mkdir(\'evidence/cold-profile\',{recursive:true});\n    for(const name of [\'Local Storage\',\'Session Storage\',\'Preferences\',\'Local State\']){\n      const origin=path.join(userData,name);\n      if(await access(origin).then(()=>true,()=>false))await cp(origin,path.join(\'evidence/cold-profile\',name),{recursive:true});\n    }\n  }catch(error){console.error(\'Diagnostic cold capture failed:\',String(error));}\n  await rm(userData,{recursive:true,force:true});\n}\n')
+          PY_DRIVER
+      - name: Run the full native preparation prefix and storage checks
+        env:
+          DEBUG: pw:browser
+          ELECTRON_ENABLE_LOGGING: '1'
         run: |
           set -euo pipefail
-          node scripts/verify-game.ts build/game
-          cat > storage-observer.js <<'POKEBONK_STORAGE_OBSERVER'
-          (() => {
-           const keys=['pb.runsave.local-sandbox','pb.runauto.local-sandbox','pokebonk.local.pending.v1','pokebonk.local.profile.v1'];
-           const get=Storage.prototype.getItem,set=Storage.prototype.setItem,remove=Storage.prototype.removeItem,clear=Storage.prototype.clear;
-           window.__storageStart=Object.fromEntries(keys.map(key=>[key,get.call(localStorage,key)]));window.__storageEvents=[];
-           const sample=(operation,key,value)=>{if(keys.includes(key)||operation==='clear')window.__storageEvents.push({operation,key,bytes:value?.length??null,value,wall:Date.now(),stack:new Error().stack});};
-           Storage.prototype.setItem=function(key,value){sample('set',key,value);return set.call(this,key,value);};
-           Storage.prototype.removeItem=function(key){sample('remove',key,get.call(this,key));return remove.call(this,key);};
-           Storage.prototype.clear=function(){sample('clear','*',null);return clear.call(this);};
-          })();
-          POKEBONK_STORAGE_OBSERVER
-          cat > storage-trace.mjs <<'POKEBONK_STORAGE_TRACE'
-          import {writeFileSync,mkdirSync} from 'node:fs';
-          process.on('exit',()=>{mkdirSync('evidence',{recursive:true});writeFileSync('evidence/storage-save-checks.json',JSON.stringify(globalThis.__storageSaveChecks??[],null,2));});
-          POKEBONK_STORAGE_TRACE
-          python3 - <<'PY_INSTRUMENT'
-          from pathlib import Path
-          import json,tarfile,shutil
-          archives=list(Path('package-artifact').glob('*.tar.gz'));assert len(archives)==1
-          out=Path('packaged');out.mkdir()
-          with tarfile.open(archives[0]) as archive:
-              for member in archive.getmembers():
-                  name=Path(member.name);assert not name.is_absolute() and '..' not in name.parts
-              archive.extractall(out,filter='data')
-          packages=list(out.iterdir());assert len(packages)==1
-          resources=packages[0]/'resources/game'
-          info=json.loads((resources/'offline-build.json').read_text())
-          assert info['upstreamVersion']=='0.9.23' and info['upstreamBuild']=='mwaj5w8h' and info['offlineVersion']=='0.0.25'
-          assert info['sourceDigest']=='47aea4dcf10c1f17fe0d3479badf7f6dfd14ad59de388e26bb37cc2d2bec068c'
-          assert info==json.loads(Path('build/game/offline-build.json').read_text())
-          shutil.copyfile('storage-observer.js',resources/'storage-probe.js')
-          p=resources/'index.html';html=p.read_text();assert '<head>' in html
-          p.write_text(html.replace('<head>','<head>\n<script src="storage-probe.js"></script>',1))
-          source=Path('e2e/electron.ts').read_text().replace("from './run-save-checks.ts'","from './run-save-checks-storage.ts'")
-          Path('e2e/electron-storage-loop.ts').write_text(source)
-          checks=Path('e2e/run-save-checks.ts').read_text()
-          needle='return {raw:localStorage.getItem(key),time:body.summary.time};'
-          assert checks.count(needle)==1
-          checks=checks.replace(needle,"return {raw:localStorage.getItem(key),time:body.summary.time,trace:{initial:window.__storageStart,events:window.__storageEvents,values:Object.fromEntries(['pb.runsave.local-sandbox','pb.runauto.local-sandbox','pokebonk.local.pending.v1','pokebonk.local.profile.v1'].map(key=>[key,localStorage.getItem(key)]))}};")
-          needle='    page=await restart();'
-          assert checks.count(needle)==1
-          checks=checks.replace(needle,"    (globalThis.__storageSaveChecks??=[]).push({stage:'before-restart',kind,saved});\n"+needle)
-          needle="    assert.equal(await page.evaluate(key=>localStorage.getItem(key),key),saved.raw,'Startup must preserve the saved blob');"
-          assert checks.count(needle)==1
-          checks=checks.replace(needle,"    const observed=await page.evaluate(key=>({raw:localStorage.getItem(key),trace:{initial:window.__storageStart,events:window.__storageEvents,values:Object.fromEntries(['pb.runsave.local-sandbox','pb.runauto.local-sandbox','pokebonk.local.pending.v1','pokebonk.local.profile.v1'].map(key=>[key,localStorage.getItem(key)]))}}),key);\n    (globalThis.__storageSaveChecks??=[]).push({stage:'after-restart',kind,observed});\n    assert.equal(observed.raw,saved.raw,'Startup must preserve the saved blob');")
-          Path('e2e/run-save-checks-storage.ts').write_text(checks)
-          PY_INSTRUMENT
-          xvfb-run -a node --import ./storage-trace.mjs e2e/electron-storage-loop.ts build/game 'packaged/Pokebonk Offline-linux-x64/Pokebonk Offline'
+          xvfb-run -a node e2e/external-links.ts
+          bash e2e/with-linux-desktop.sh pnpm repro:window-lifecycle
+          bash e2e/with-linux-desktop.sh pnpm repro:fullscreen
+          xvfb-run -a pnpm repro:pointer-lock
+          bash e2e/with-linux-desktop.sh node e2e/fullscreen-game.ts
+          xvfb-run -a node e2e/appearance-readiness.ts
+          xvfb-run -a node e2e/electron-storage-lifecycle.ts
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: storage-startup-evidence-${{ matrix.attempt }}
+          name: storage-lifecycle-evidence-${{ matrix.attempt }}
           path: evidence/
           if-no-files-found: ignore
           retention-days: 3
