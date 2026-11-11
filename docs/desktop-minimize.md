@@ -90,24 +90,51 @@ The maintained native probe adds acquisition-acknowledgment controls:
 CI=1 bash e2e/with-linux-desktop.sh node e2e/minimize-game.ts '' ack-resume-only ack-stable ack-resume-only ack-stable
 ```
 
-These modes delay only the actual game's pointer-lock acquisition consumer by
-1,300 ms, assert that exactly one known consumer was selected, and forward its
-original callback. Actual pointer acquisition, native minimization and release,
-upstream pause behavior, and restoration remain real. Every trial uses disposable
-user data. The original immediate/stable modes remain available without this
-delay. This isolates the consumer ordering; it does not claim that the hosted
-failure had the artificial delay.
+These modes gate only the actual game's pointer-lock acquisition consumer,
+assert that exactly one known consumer was selected, and forward its original
+callback. Initial capture and pause/unlock acknowledgment complete before the
+gate is armed. The held snapshot must have DOM canvas capture, an unacknowledged
+consumer, an ineligible shared-helper result, a queued real acquisition callback,
+and (for resume-only and stable controls) an expired resume guard.
 
-Repeated resume-only/eligible/resume-only/eligible trials observed unacknowledged DOM
-capture and continued play in both resume-only controls, then acknowledged capture and
-paused/restored-paused states in both eligible cases. The eligible trials also
-asserted actual release ages of at least 700 ms and expiration of the resume
-window. Mechanism assertions are separate from pause outcomes. The resume-only control waits for the known resume guard but still uses the old
-capture-age condition. The delay exceeds that guard, so waiting for resume alone
-cannot make the case pass accidentally. Legacy controls report an older recorded
-clock, not the duration of the current physical lock. The original old condition
-is also available as `ack-legacy`. The development CI job runs the repeated
-resume-only/eligible comparison before platform packaging.
+The resume-only control keeps acquisition held through real native minimization
+and pointer release, then forwards the queued callback against the actual DOM
+state. The stable control releases acquisition while the canvas remains captured,
+then waits for the unchanged shared 700 ms acquisition-age and resume guards
+before real native minimization. Actual pointer acquisition, native release,
+upstream pause behavior and restoration remain real. Every trial uses disposable
+user data. The original immediate/stable modes remain available without this
+controller. Legacy controls report the previous input clock, rather than the
+current physical capture's duration; `ack-legacy` retains the original condition
+without waiting for the resume guard.
+
+The earlier controller used a 1,300 ms timer and passed repeated local and hosted
+comparisons. A [subsequent hosted control](https://github.com/VdustR/pokebonk-offline/actions/runs/43084919455)
+failed its mechanism assertion: the acquisition timer had already fired while
+Playwright was waiting to issue minimization. Input was acknowledged for about
+898 ms before actual native release, so the game correctly paused. That event
+invalidated the negative test's prerequisite; it did not establish a pause
+regression or a saved-blob mismatch. An explicit release gate keeps that ordering
+independent of runner and command latency instead of extending a timer. The
+shared-helper eligibility snapshot and queued-callback count test the mechanism
+separately from the observed play/pause result. The development CI job runs the
+repeated resume-only/eligible comparison before platform packaging.
+
+[Playwright's Clock](https://playwright.dev/docs/clock) can control timers, but
+installing it also replaces `performance` and animation-frame timing. This probe
+therefore keeps real clocks for the native release-age measurement and controls
+only delivery to the selected game consumer. No extra dependency or simulated
+native event is needed for that narrow boundary.
+
+A native request-latency control inserted an extra 1,600 ms Node-side wait before
+minimization. Repeating timer/gate/timer/gate reproduced the old controller's
+invalid acknowledged-input prerequisite twice; both gated resume-only/stable
+pairs passed. The held snapshots were independently ineligible with queued real
+callbacks. The eligible native release ages were about 2,453 and 2,448 ms, and
+restoration preserved the expected play/paused states. In a timer trial the game
+still played because the latest acquisition was too recent: the outcome alone
+would have missed the invalid prerequisite. This comparison validates controller
+ordering under command delay, not the original publication event's unique cause.
 
 The fullscreen smoke and stable probe now share this eligibility decision.
 Failure evidence records input clocks, acknowledgment, pointer/run state and
@@ -126,3 +153,9 @@ the integrated controls receive the caller's selected game directory. Type
 checking, 60 compiler probes and 105 unit/regression tests passed. Only test and
 evidence files changed; the packaged-source identity and offline version remain
 unchanged. Hosted current-head and main publication gates are still required.
+
+The final gated Linux entry passed the normal fullscreen/minimize/restore flow
+and all four controls. Its stable release ages were about 750 and 829 ms; every
+held snapshot was ineligible, had queued acquisition callbacks, and finished with
+an empty queue after forwarding. The legacy release wait keeps the existing
+1,500 ms observation bound. Type checking passed against this final source.
