@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import {dismissMenuNotices} from './game-checks.ts';
 import {focusNativeInput,restoreNativeInput} from './native-input-focus.ts';
 import {checkRestoreInput} from './restore-input.ts';
+import {readGameCapture,waitForPauseEligibleCapture} from './pause-capture.ts';
+import {checkMinimizeInput} from './minimize-game.ts';
 
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
@@ -17,6 +19,7 @@ if(process.env['CI']&&process.platform==='linux')args.push('--no-sandbox','--use
 const app=await electron.launch({args,...(executablePath?{executablePath:path.resolve(executablePath)}:{}),env:{...process.env,POKEBONK_GAME_DIR:game,POKEBONK_USER_DATA_DIR:userData},timeout:120000}).catch(async error=>{await rm(userData,{recursive:true,force:true});throw error;});
 let page:Page|undefined;
 let stage='boot';
+let beforeMinimize:Awaited<ReturnType<typeof readGameCapture>>|undefined;
 const startupErrors:string[]=[];
 try {
   page=await app.firstWindow();
@@ -82,16 +85,10 @@ try {
   stage='initial-input';
   await focusNativeInput(app);
   await page.keyboard.press('w');
-  // Upstream ignores user unlocks less than 700 ms after its actual acquisition.
-  // A canvas lock alone can still be a transient lock, so measure its own clock.
-  // See docs/desktop-minimize.md for the native timing probe and evidence.
-  await page.waitForFunction(()=>{
-    const input:unknown=Reflect.get(window.__pokebonkLocalApp,'input');
-    if(typeof input!=='object'||input===null)return false;
-    const lockedAt:unknown=Reflect.get(input,'lockedAt');
-    return document.pointerLockElement?.tagName==='CANVAS'&&window.__pokebonkLocalApp.run?.state==='play'
-      &&typeof lockedAt==='number'&&Number.isFinite(lockedAt)&&performance.now()-lockedAt>=700;
-  });
+  // Wait for the game's acquisition acknowledgment and both unlock guards.
+  // DOM capture alone can still refer to an input timestamp from an older lock.
+  await waitForPauseEligibleCapture(page);
+  beforeMinimize=await readGameCapture(page);
   stage='minimize';
   await app.evaluate(({BrowserWindow})=>{
     const window=BrowserWindow.getAllWindows()[0];
@@ -114,7 +111,7 @@ try {
     await mkdir('evidence',{recursive:true});
     await page.screenshot({path:'evidence/fullscreen-game-failure.png'}).catch(()=>{});
     const native=await app.evaluate(({BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];return window?{minimized:window.isMinimized(),focused:window.isFocused(),contentsFocused:window.webContents.isFocused()}:null;}).catch(()=>null);
-    await writeFile('evidence/fullscreen-game-failure.json',JSON.stringify({error:String(error),stage,startupErrors,native,url:page.url(),text:await page.locator('body').innerText().catch(()=>''),boot:await page.evaluate(()=>Reflect.get(window,'__pokebonkSmokeBootState')).catch(()=>null)},null,2));
+    await writeFile('evidence/fullscreen-game-failure.json',JSON.stringify({error:String(error),stage,startupErrors,native,beforeMinimize,input:await readGameCapture(page).catch(()=>null),url:page.url(),text:await page.locator('body').innerText().catch(()=>''),boot:await page.evaluate(()=>Reflect.get(window,'__pokebonkSmokeBootState')).catch(()=>null)},null,2));
   }
   throw error;
 } finally {
@@ -122,4 +119,8 @@ try {
     await app.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.destroy();}).catch(()=>{});
     await app.close();
   } finally { await rm(userData,{recursive:true,force:true}); }
+}
+
+if(!executablePath&&process.platform==='linux') {
+  await checkMinimizeInput(undefined,['ack-resume-only','ack-stable','ack-resume-only','ack-stable'],game);
 }

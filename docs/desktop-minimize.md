@@ -1,6 +1,6 @@
 # Linux minimize smoke precondition
 
-The real-game fullscreen smoke test asserts that minimizing a running, pointer-locked game releases capture and pauses the run. A newly acquired lock is not enough: the bundled upstream input ignores user unlocks when `unlockAt - lockedAt < 700`. The test now waits for canvas capture, `run.state === 'play'`, and at least 700 ms on the actual input's `lockedAt` clock before native minimization. The existing pause, restore-keeps-paused, and resume-reacquires assertions retain their timeouts.
+The real-game fullscreen smoke test asserts that minimizing a running, pointer-locked game releases capture and pauses the run. A newly acquired lock is not enough: the bundled upstream input ignores user unlocks when `unlockAt - lockedAt < 700`. The shared `waitForPauseEligibleCapture` helper requires canvas capture, `run.state === 'play'`, acknowledgment by the game's input consumer, and an acquisition clock newer than its last release. It then waits for 700 ms on that clock and for the upstream resume grace period to expire (800 ms normally, 1,500 ms after a modal). The existing pause, restore-keeps-paused, and resume-reacquires assertions retain their timeouts.
 
 ## Native probe
 
@@ -63,3 +63,66 @@ The maintained fixture passed both positive trials and withheld-restore rejectio
 Packaged acceptance also establishes native window and web-contents focus before its first trusted gameplay key and verifies native focus at the minimize request. A local macOS package reproduced an initial capture timeout while native focus was absent; the focused flow passed. The isolated fixture's API accepts no packaged executable, and checks `app.isPackaged === false`, preserving the packaged shell's intentional refusal to load an alternate game directory.
 
 Menu labels have a separate asynchronous boundary: the upstream fullscreen-change callback updates the button after DOM/native fullscreen state can already change. The smoke waits up to five seconds for its nonempty entered label and restored initial label, then keeps the original assertions. A current-build native control delayed only that real label listener by 1.5 seconds; both transitions passed with the waits, while a permanently withheld label update still rejected. Repeating the delayed control passed again. No label, input or pause behavior is patched in the distributed game.
+
+## Input acknowledgment before measuring capture age
+
+The [main publication attempt](https://github.com/VdustR/pokebonk-offline/actions/runs/43058951330)
+failed the original minimize-to-pause assertion on upstream 0.9.23/build
+`mwaj5w8h`, using the
+[source before this repair](https://github.com/VdustR/pokebonk-offline/commit/1740d86d1be78a070451e025fa5d963f2db62ba4).
+Native minimization completed, boot was ready, and no startup exceptions were
+recorded. That artifact lacks input clocks and run state, so it does not establish
+the unique hosted event's cause.
+
+A subsequent native Ubuntu 24.04 amd64/Openbox/Electron 45 probe observed DOM
+canvas capture while the game's input still held an older `lockedAt`, preceding
+its last `unlockAt`. The old 700 ms condition passed using that previous capture.
+The actual acquisition consumer updated its clock about 48 ms later, followed by
+native release about 2 ms later; the upstream flicker guard correctly kept play.
+A separate attempt to isolate the 800 ms resume window released at 806 ms and
+was excluded from the negative comparison. The resume guard itself is present
+with the same 800/1,500 ms semantics in both reviewed 0.9.22 and 0.9.23 sources.
+
+The maintained native probe adds acquisition-acknowledgment controls:
+
+```sh
+# Empty executable argument selects the development shell.
+CI=1 bash e2e/with-linux-desktop.sh node e2e/minimize-game.ts '' ack-resume-only ack-stable ack-resume-only ack-stable
+```
+
+These modes delay only the actual game's pointer-lock acquisition consumer by
+1,300 ms, assert that exactly one known consumer was selected, and forward its
+original callback. Actual pointer acquisition, native minimization and release,
+upstream pause behavior, and restoration remain real. Every trial uses disposable
+user data. The original immediate/stable modes remain available without this
+delay. This isolates the consumer ordering; it does not claim that the hosted
+failure had the artificial delay.
+
+Repeated resume-only/eligible/resume-only/eligible trials observed unacknowledged DOM
+capture and continued play in both resume-only controls, then acknowledged capture and
+paused/restored-paused states in both eligible cases. The eligible trials also
+asserted actual release ages of at least 700 ms and expiration of the resume
+window. Mechanism assertions are separate from pause outcomes. The resume-only control waits for the known resume guard but still uses the old
+capture-age condition. The delay exceeds that guard, so waiting for resume alone
+cannot make the case pass accidentally. Legacy controls report an older recorded
+clock, not the duration of the current physical lock. The original old condition
+is also available as `ack-legacy`. The development CI job runs the repeated
+resume-only/eligible comparison before platform packaging.
+
+The fullscreen smoke and stable probe now share this eligibility decision.
+Failure evidence records input clocks, acknowledgment, pointer/run state and
+resume origin both before minimization and after failure. The original pause,
+restore-keeps-paused and reacquisition assertions retain their deadlines. No
+production input behavior or pause callback is changed, and the probe never
+substitutes a forced pause for the expected native-minimize outcome. Required
+current-head platform CI and exact-source release acceptance remain separate
+integration gates.
+
+Local acceptance passed the normal macOS and Linux fullscreen/minimize/restore
+flow, the original immediate/stable controls, and the integrated Linux entry with
+all four resume-only/eligible cases. A separate check mounted the prepared game
+at an alternate path with no default game directory and passed an eligible trial;
+the integrated controls receive the caller's selected game directory. Type
+checking, 60 compiler probes and 105 unit/regression tests passed. Only test and
+evidence files changed; the packaged-source identity and offline version remain
+unchanged. Hosted current-head and main publication gates are still required.
