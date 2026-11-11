@@ -12,22 +12,13 @@ jobs:
     timeout-minutes: 9
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - name: Compare DNS and HTTPS at the package acquisition boundary
+      - name: Compare affected domains with acquisition controls
         shell: bash
         run: |
           set -u
-          for host in archive.ubuntu.com security.ubuntu.com; do
-            printf '\nUser DNS: %s\n' "$host"
-            timeout 8 getent ahostsv4 "$host" || true
-            printf '\nRoot DNS: %s\n' "$host"
-            sudo timeout 8 getent ahostsv4 "$host" || true
-            printf '\nAPT sandbox DNS: %s\n' "$host"
-            sudo -u _apt timeout 8 getent ahostsv4 "$host" || true
-            printf '\nUser HTTPS: %s\n' "$host"
-            curl --head --fail --silent --show-error --max-time 8 "https://$host/ubuntu/dists/noble/InRelease" || true
-            printf '\nAPT sandbox HTTPS: %s\n' "$host"
-            sudo -u _apt curl --head --fail --silent --show-error --max-time 8 "https://$host/ubuntu/dists/noble/InRelease" || true
+          for host in github.com azure.archive.ubuntu.com mirrors.edge.kernel.org archive.ubuntu.com security.ubuntu.com; do
+            printf '\nDNS: %s\n' "$host"
+            timeout 5 getent ahostsv4 "$host" || true
+            printf '\nHTTPS: %s\n' "$host"
+            curl --head --fail --silent --show-error --max-time 8 "https://$host/" || true
           done
-      - name: Run the unchanged installer
-        timeout-minutes: 6
-        run: bash e2e/install-linux-desktop.sh
