@@ -97,12 +97,37 @@ several minutes before official-archive failover. A related
 [runner image report](https://github.com/actions/runner-images/issues/15040)
 describes the same acquisition stall; the remote backend cause is unconfirmed.
 The installer uses a temporary, command-scoped source list for Ubuntu 24.04
-amd64, official archive/security HTTPS endpoints and the existing Ubuntu archive
-keyring. It does not change runner-wide repositories or disable signature/TLS
-verification. Both index refresh and installation have two retries and 20-second
+amd64, the Linux Kernel Archives' [Ubuntu HTTPS mirror](https://mirrors.edge.kernel.org/),
+and the existing Ubuntu archive keyring. Every suite retains the
+[Ubuntu archive authentication chain](https://manpages.ubuntu.com/manpages/noble/man8/apt-secure.8.html):
+signed Release metadata authenticates the indexes and package hashes. No signing
+key, runner-wide repository, DNS setting, signature policy, or TLS policy changes.
+Both index refresh and installation have two retries and 20-second
 connection/data timeouts; each workflow step has a six-minute total deadline.
-Any index error fails before package installation. This bounds and avoids the
-observed mirror-list path; it cannot guarantee external archive availability.
+Any index error fails before package installation. External mirror availability
+is still required; this is an acquisition mitigation, not a DNS repair.
+
+On November 11, 2026, two release attempts failed DNS resolution for both official
+endpoints before validation. A
+[hosted boundary probe](https://github.com/VdustR/pokebonk-offline/actions/runs/43036811755)
+found the same failure as the runner, root, and APT sandbox users. A
+[domain comparison](https://github.com/VdustR/pokebonk-offline/actions/runs/43037494895)
+resolved and reached GitHub and kernel.org while all three Ubuntu archive domains
+failed resolution. These observations do not establish the underlying resolver
+or upstream DNS cause. The older runner-image report and its reply describe
+failover freezes, which do not prove the cause of this DNS failure.
+
+[Direct mirror acquisition](https://github.com/VdustR/pokebonk-offline/actions/runs/43037843835)
+refreshed all three signed suites and installed Openbox and X11 utilities on an
+actual hosted Ubuntu 24.04 amd64 runner. Native APT mirror-list selection also
+passed the ordinary path, but a
+[failed-primary control](https://github.com/VdustR/pokebonk-offline/actions/runs/43038244744)
+stalled after switching to kernel.org for Release metadata and timed out at six
+minutes while acquiring subsequent indexes. Therefore this installer keeps
+direct acquisition instead of reintroducing mirror-list failover. The
+all-mirrors-unreachable control was not reached and supplies no conclusion.
+These narrow acquisition checks do not replace the required native desktop and
+packaged application tests.
 
 ### Generated portrait readiness
 
