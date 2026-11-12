@@ -24,10 +24,12 @@ autosave recovery removes the upstream autosave and settles the last local
 checkpoint once. Active recovered runs defer background settlement.
 
 This follows the existing single-profile localStorage adapter and requires no
-new database or dependency. The native application uses one instance per
-profile. It does not coordinate two independently modified copies of a profile.
-Storage errors remain observable; this does not promise recovery after a disk
-or operating-system failure destroys the storage itself.
+new database or dependency. The adapter assumes a single writer per profile;
+the native shell currently does not enforce a single-instance lock. It does not
+coordinate concurrent processes or independently modified copies of a profile.
+Errors surfaced by the storage API remain observable; Chromium can also fall
+back to memory without throwing, as described below. This does not promise
+recovery after a disk or operating-system failure destroys the storage itself.
 
 ## Online capabilities
 
@@ -48,6 +50,22 @@ real autosave checkpoint producer before process loss and verifies recovery and
 that settled saves are not offered again. Real user-profile preservation is a
 separate release/install gate.
 
+Recovery acceptance gives the trusted Continue click and restored-scene check
+one 120-second deadline, preserving the previous combined 30-second click and
+90-second scene allowance. Electron's input acknowledgment can wait behind the
+game's synchronous scene construction; `noWaitAfter` skips navigation waiting,
+not input acknowledgment. A production-shell control with a 35-second synchronous
+click handler reproduces the old 30-second timeout even though its trusted click
+restores the scene. Acceptance still requires the dialog to disappear, a playable
+or paused simulation, resumed time progression, and exactly-once settlement.
+This addresses input timing, not missing storage after restart.
+
+Run `pnpm build && node e2e/recovery-click-budget.ts` to repeat the old/fixed/old
+native control and reject a delivered click that never restores. On Linux, run
+the Node command through `bash e2e/with-linux-desktop.sh`. It uses a disposable
+minimal page, asserts a trusted click in each case, and writes
+`evidence/recovery-click-budget.json`.
+
 If startup changes the saved blob, acceptance records the pre-restart and
 post-startup save, profile and pending-settlement values in
 `evidence/electron-run-save-failure.json`, then preserves the original failure.
@@ -58,12 +76,37 @@ does not establish whether storage loss or application cleanup caused it.
 
 On a native acceptance failure, `evidence/electron-storage-failure.json` also
 records the requested and actual session paths, Linux storage file descriptors,
-and available disk space. After the original native close sequence and confirmed
-process exit, acceptance copies its own disposable storage database and preference
-files to `evidence/electron-cold-profile/`. It never copies a different native
+and available disk space. It retains initial native paths from the existing
+security-preference probe and process exit status at each `app.close()` return,
+without adding an exit wait to the restart path. After the original native close
+sequence and confirmed process exit, acceptance copies its own disposable storage
+database and preference files to `evidence/electron-cold-profile/`. It never copies a different native
 profile path. Capture errors are reported without replacing the original test
-failure. These observations and copies occur only after failure; they do not add
-an observation or delay before the save restart under test.
+failure. Failure-time storage paths and cold copies are collected only after failure.
+
+After the gameplay checks, acceptance retains the original writer's Chromium
+storage key and `Storage.*` histograms in memory. On failure it captures the
+current process's matching diagnostics in the same evidence file. The original
+process's counters cannot be reconstructed after it exits. This observation
+precedes the save scenarios and may affect timing; it is not a storage repair.
+The actual restart sequence and saved-blob equality remain unchanged.
+
+With Electron 45 / Chromium 156, a controlled LevelDB lock produced the same
+`pokebonk://game/` storage key but disk-open errors and
+`Storage.LocalStorage.OpenDatabase.InMemory` plus
+`Storage.LocalStorage.Recovery.OpenFailure` histograms. Releasing the lock
+restored the original disk values. A healthy control recorded successful
+on-disk open/read counters instead. These counters distinguish this mechanism
+from healthy disk storage; a normal session path or an empty JavaScript error
+list does not. The historical CI profile resets lack these counters and a cold
+database, so their cause remains unconfirmed. Do not infer that they were lock
+failures or repair them by clearing data.
+
+This behavior matches the pinned Chromium source: database-open failure can
+[recreate storage or fall back to memory](https://github.com/chromium/chromium/blob/156.0.8078.48/components/services/storage/dom_storage/local_storage_impl.cc),
+while a map-read failure can
+[detach persistence while leaving the storage area functional](https://github.com/chromium/chromium/blob/156.0.8078.48/components/services/storage/dom_storage/storage_area_impl.cc).
+Neither source establishes which path the historical CI failures took.
 
 Startup validates existing recovery envelopes before exposing a playable profile
 or persisting normalization. A damaged or incompatible save therefore cannot be

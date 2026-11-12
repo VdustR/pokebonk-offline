@@ -13,6 +13,18 @@ function readRunStorage(key:string) {
   };
 }
 
+export async function resumeSavedRun(page:Page) {
+  // Native input acknowledgment can wait behind synchronous scene construction.
+  // Share the previous 30s click + 90s scene budget instead of failing the click
+  // while the game is still legitimately restoring within that total budget.
+  const started=performance.now(),timeout=120000;
+  await page.locator('.sv-card').getByRole('button',{name:'繼續',exact:true}).click({noWaitAfter:true,timeout});
+  const remaining=timeout-(performance.now()-started);
+  assert.ok(remaining>0,'Saved-run recovery exceeded its total deadline');
+  await page.waitForFunction(()=>{const run=window.__pokebonkLocalApp.run;return !document.querySelector('.sv-card')&&run&&(run.state==='play'||run.state==='paused');},null,{timeout:remaining,polling:100});
+  return performance.now()-started;
+}
+
 // Both restarts terminate the actual native process and reopen its disposable
 // profile. A renderer reload cannot prove a saved run survives process loss.
 export async function checkRunSaves(page:Page,restart:()=>Promise<Page>,focus:()=>Promise<void>) {
@@ -52,14 +64,8 @@ export async function checkRunSaves(page:Page,restart:()=>Promise<Page>,focus:()
         .catch(captureError=>console.error('Run-save failure capture failed:',captureError));
       throw error;
     }
-    // This resumes a scene in the same document. Verify the actual restored
-    // simulation below without waiting for an unrelated navigation.
-    await page.locator('.sv-card').getByRole('button',{name:'繼續',exact:true}).click({noWaitAfter:true});
-    const restoreStarted=Date.now();
-    // Observe the owning document and simulation together. A locator-world
-    // checkpoint can remain pending while this native scene is already restored.
-    await page.waitForFunction(()=>{const run=window.__pokebonkLocalApp.run;return !document.querySelector('.sv-card')&&run&&(run.state==='play'||run.state==='paused');},null,{timeout:90000,polling:100});
-    console.log('Native',kind,'restored scene ready after',Date.now()-restoreStarted,'ms');
+    const restoreElapsed=await resumeSavedRun(page);
+    console.log('Native',kind,'restored scene ready after',Math.round(restoreElapsed),'ms including the recovery click');
     await dismissMenuNotices(page);
     await focus();
     await page.evaluate(()=>window.__pokebonkLocalApp.run?.resume());

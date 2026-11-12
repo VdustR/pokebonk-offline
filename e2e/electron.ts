@@ -15,6 +15,7 @@ import {checkEventAssets} from './event-checks.ts';
 import {checkAppearanceAssets} from './appearance-checks.ts';
 import {checkVictoryRegression} from './victory.ts';
 import {checkStellarShop} from './stellar-checks.ts';
+import {readStorageDiagnostics} from './storage-diagnostics.ts';
 const game=path.resolve(process.argv[2]??'build/game');
 const executablePath=process.argv[3];
 const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-e2e-'));
@@ -25,13 +26,16 @@ if(process.env['CI'] && process.platform==='linux')options.args.push('--no-sandb
 await mkdir('evidence',{recursive:true});
 let app: ElectronApplication | undefined;
 let failed=false;
+let beforeSaveStorage:Awaited<ReturnType<typeof readStorageDiagnostics>>|{captureError:string}|undefined;
+let initialPaths:{pid:number;userData:string;sessionData:string;storage:string|null}|undefined;
+const closeReturns:{pid:number|undefined;exitCode:number|null;signalCode:NodeJS.Signals|null}[]=[];
 const errors: string[]=[],missing: {url:string;status:number}[]=[],external: string[]=[];
 try {
   await checkVictoryRegression(game,executablePath,true);
   app=await electron.launch(options);
   let page=await app.firstWindow();
   if(executablePath)assert.equal(await app.evaluate(({app})=>app.getVersion()),metadata.offlineVersion,'Packaged native version must match offline release');
-  const isolation=await app.evaluate(({BrowserWindow})=>{
+  const isolation=await app.evaluate(({app,BrowserWindow,session})=>{
     const window=BrowserWindow.getAllWindows()[0];
     if(!window)throw new Error('No Electron window');
     // Electron exposes this runtime method without a public declaration.
@@ -40,9 +44,13 @@ try {
     const value: unknown=read.call(window.webContents);
     if(typeof value!=='object'||value===null)throw new Error('Invalid Electron preferences');
     const p=value as Record<string,unknown>;
-    return {sandbox:p['sandbox'],nodeIntegration:p['nodeIntegration'],contextIsolation:p['contextIsolation'],webSecurity:p['webSecurity']};
+    return {
+      preferences:{sandbox:p['sandbox'],nodeIntegration:p['nodeIntegration'],contextIsolation:p['contextIsolation'],webSecurity:p['webSecurity']},
+      paths:{pid:process.pid,userData:app.getPath('userData'),sessionData:app.getPath('sessionData'),storage:session.defaultSession.storagePath},
+    };
   });
-  assert.deepEqual(isolation,{sandbox:true,nodeIntegration:false,contextIsolation:true,webSecurity:true});
+  initialPaths=isolation.paths;
+  assert.deepEqual(isolation.preferences,{sandbox:true,nodeIntegration:false,contextIsolation:true,webSecurity:true});
   const observe=(page:import('playwright-core').Page)=>{
   page.on('pageerror',e=>errors.push(e.message));
   page.on('response',r=>{if(r.status()>=400)missing.push({url:r.url(),status:r.status()});});
@@ -79,10 +87,16 @@ try {
   await checkStellarShop(page);
   await checkAppearanceAssets(page);
   await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true,focusPointerInput:async()=>{if(!app)throw new Error('Missing Electron application');await focusNativeInput(app);}});
+  // Retain the original process's counters: after restart they cannot tell us
+  // whether the writer had already fallen back to nonpersistent storage.
+  beforeSaveStorage=await readStorageDiagnostics(page).catch(error=>({captureError:String(error)}));
   const restart=async(ready=true)=>{
     if(!app)throw Error('Missing native application');
+    const nativeProcess=app.process();
     await app.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.destroy();});
-    await app.close();app=await electron.launch(options);
+    await app.close();
+    closeReturns.push({pid:nativeProcess.pid,exitCode:nativeProcess.exitCode,signalCode:nativeProcess.signalCode});
+    app=await electron.launch(options);
     const next=await app.firstWindow();observe(next);
     if(ready){
       await next.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
@@ -122,9 +136,10 @@ try {
         app.evaluate(({app,session})=>({requested:process.env['POKEBONK_USER_DATA_DIR'],userData:app.getPath('userData'),sessionData:app.getPath('sessionData'),storage:session.defaultSession.storagePath,persistent:session.defaultSession.isPersistent()})),
         new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('Native storage-path capture timed out')),5000);}),
       ]).catch(captureError=>({captureError:String(captureError)})).finally(()=>clearTimeout(timer));
-      await writeFile('evidence/electron-storage-failure.json',JSON.stringify({error:String(error),pid:nativeProcess.pid,paths,descriptors,captureErrors,diskFreeBytes:disk?disk.bavail*disk.bsize:null,diskFreeInodes:disk?.ffree??null},null,2));
       const pages=app.windows();
       const page=pages[0];
+      const currentStorage=page?await readStorageDiagnostics(page).catch(captureError=>({captureError:String(captureError)})):undefined;
+      await writeFile('evidence/electron-storage-failure.json',JSON.stringify({error:String(error),pid:nativeProcess.pid,initialPaths,closeReturns,paths,descriptors,captureErrors,beforeSaveStorage,currentStorage,diskFreeBytes:disk?disk.bavail*disk.bsize:null,diskFreeInodes:disk?.ffree??null},null,2));
       if(page) {
         await page.screenshot({path:'evidence/electron-failure.png'}).catch(()=>{});
         await writeFile('evidence/electron-failure.json',JSON.stringify({errors,missing,external,url:page.url(),runtime:await page.evaluate(()=>({visibility:document.visibilityState,focused:document.hasFocus(),savedDialogs:document.querySelectorAll('.sv-card').length,run:window.__pokebonkLocalApp?.run?{state:window.__pokebonkLocalApp.run.state,time:window.__pokebonkLocalApp.run.time}:null})).catch(()=>null),text:await page.locator('body').innerText().catch(()=>''),error:String(error)},null,2));
