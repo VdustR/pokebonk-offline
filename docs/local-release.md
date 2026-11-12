@@ -50,6 +50,11 @@ desktop archives and one signed APK, plus `release-info.json` and `SHA256SUMS.tx
    never overwritten. Interrupted draft publication can resume with
    `pnpm release:local publish` from the same source commit and local receipt.
 
+Release discovery uses GitHub's authenticated, paginated release collection,
+which includes drafts. The [tag lookup endpoint](https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name)
+only returns published releases, so it cannot verify or resume an unpublished
+upload. API and malformed-response errors remain failures, not missing releases.
+
 Artifacts live in `release/<tag>-<commit-prefix>/`; the acceptance receipt,
 Android verification and publication readback live under the corresponding
 `cache/local-release/` directory. A failed preparation retains its evidence;

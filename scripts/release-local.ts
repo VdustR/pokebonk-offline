@@ -1,4 +1,4 @@
-import {execFileSync,spawnSync} from 'node:child_process';
+import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {mkdir,readFile,writeFile,readdir,statfs,access} from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +7,7 @@ import {errorCode,list,record,text} from '../types/data.ts';
 import {parseProvenance,releaseNotes,releaseRequired} from '../types/release.ts';
 import {offlineVersion,sourceDigest} from './release-source.ts';
 import {readSnapshotManifest} from './upstream-snapshot.ts';
-import {androidVersionCode,assertAndroidUpgrade,assertArtifacts,assertPublishSource,desktopTargets,parseArtifact,parseReceipt,releaseFiles} from './local-release-policy.ts';
+import {androidVersionCode,assertAndroidUpgrade,assertArtifacts,assertPublishSource,desktopTargets,findRelease,parseArtifact,parseReceipt,releaseFiles} from './local-release-policy.ts';
 import type {ReleaseArtifact} from './local-release-policy.ts';
 
 const mode=process.argv[2]??'release';
@@ -20,13 +20,7 @@ const capture=(command:string,args:string[])=>execFileSync(command,args,{env:chi
 const run=(command:string,args:string[])=>{console.log('+',command,...args);execFileSync(command,args,{env:childEnv,stdio:'inherit',timeout:15*60*1000});};
 const node=(...args:string[])=>run(process.execPath,args);
 const api=(endpoint:string)=>JSON.parse(capture('gh',['api',`repos/${repository}/${endpoint}`])) as unknown;
-function release(tag:string) {
-  const result=spawnSync('gh',['api',`repos/${repository}/releases/tags/${tag}`],{env:childEnv,encoding:'utf8',timeout:60000,maxBuffer:4*1024*1024});
-  if(result.error)throw result.error;
-  if(result.status===0)return record(JSON.parse(result.stdout),'GitHub release');
-  if(result.stderr.includes('(HTTP 404)'))return undefined;
-  throw new Error(`Release lookup failed: ${result.stderr}`);
-}
+const release=(tag:string)=>findRelease(tag,api);
 const sha=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 const head=capture('git',['rev-parse','HEAD']);
 assertPublishSource(head,head,capture('git',['status','--porcelain','--untracked-files=normal']));

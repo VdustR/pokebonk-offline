@@ -3,6 +3,16 @@ import {parseProvenance} from '../types/release.ts';
 import type {ReleaseProvenance} from '../types/release.ts';
 
 export const desktopTargets=[['darwin','arm64'],['darwin','x64'],['linux','x64'],['win32','x64']] as const;
+export function findRelease(tag:string,request:(endpoint:string)=>unknown) {
+  // GitHub's tag endpoint excludes drafts. The authenticated collection includes
+  // them, including an interrupted upload that must resume before publication.
+  for(let page=1;;page++) {
+    const releases=list(request(`releases?per_page=100&page=${page}`),value=>record(value,'GitHub release'));
+    const match=releases.find(release=>text(release['tag_name'],'release tag')===tag);
+    if(match)return match;
+    if(releases.length<100)return undefined;
+  }
+}
 export function releaseFiles(info:ReleaseProvenance) {
   return [...desktopTargets.map(([platform,arch])=>`pokebonk-offline-${info.offlineVersion}-unlocked-${platform}-${arch}-game-${info.upstreamVersion}-${info.upstreamBuild}.${platform==='linux'?'tar.gz':'zip'}`),
     `pokebonk-offline-${info.offlineVersion}-unlocked-android.apk`,'release-info.json','SHA256SUMS.txt'];
