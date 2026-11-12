@@ -33,7 +33,7 @@ export function releaseRequired(existing:unknown,expected:ReleaseProvenance) {
   const info=parseProvenance(JSON.parse(marker[1]));
   if(info.tag!==expected.tag)throw new Error('Published release identity mismatch');
   if(info.sourceDigest!==expected.sourceDigest)throw new Error('Packaged source changed without an offline version bump; add and version a changeset');
-  if(release['draft']&&info.builder!==expected.builder)throw new Error('Draft belongs to another commit; resume its original CI run');
+  if(release['draft']&&info.builder!==expected.builder)throw new Error('Draft belongs to another commit; resume from its original source commit');
   return release['draft'];
 }
 export function releaseNotes(info:ReleaseProvenance,changelog:string) {

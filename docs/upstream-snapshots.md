@@ -12,13 +12,10 @@ The initial snapshot is upstream 0.8.78, build `mvtnhtpk`: 3,021 raw files, incl
 
 ## Workflow ownership
 
-1. **Detect:** The daily [version-issue workflow](upstream-version-issues.md) updates the open tracker or creates a new issue for a different build after closure. It does not acquire or publish game files.
-2. **Acquire:** A separate manually dispatched, read-only sync job checks the upstream identity. An unchanged build succeeds without acquisition. A changed, unreviewed build emits an error and exits with status 1 after recording the accepted/detected versions and review instructions. Reviewed inputs are collected into an isolated candidate, with per-build download caches and bounded body-aware retries. Failure leaves the committed snapshot unchanged.
-3. **Validate:** The reusable build workflow prepares that exact candidate with fetch disabled, verifies all payload hashes/catalogs, and runs the same native and platform checks as ordinary CI. Candidate builds cannot publish releases or receive Android signing secrets.
-4. **Commit:** A separate writer downloads the candidate and compares it with the digest returned by validation. It processes bytes/JSON only; it never evaluates upstream modules or installs dependencies. It commits only the vendored snapshot and uses a normal push to `main`. Concurrent main updates or branch protection cause the push to fail instead of overwriting work.
-5. **Release:** After the snapshot commit, the writer explicitly dispatches the ordinary release workflow. The resulting build checks out a coherent Git commit and regenerates all release provenance before publication. [GitHub documents why a token push needs an explicit workflow dispatch](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
-
-The sync writer has repository/action write permissions. Acquisition and candidate execution retain read-only repository access. The writer validates the exact tested digest before any Git write, preventing artifact replacement between validation and commit from changing the accepted bytes.
+1. **Detect:** The daily/manual [version-issue workflow](upstream-version-issues.md) reports an available build. This is the only Actions workflow; it cannot acquire, promote or publish game files.
+2. **Review and acquire locally:** Complete the resource dependency review, then collect the exact reviewed build into an isolated candidate with bounded retries and the existing per-build cache. Failure preserves the committed snapshot.
+3. **Validate and commit locally:** Prepare the candidate with upstream network access disabled and verify its payload. Promote only the validated snapshot digest, review the diff and commit through the normal PR workflow. Do not evaluate downloaded game modules in a privileged writer.
+4. **Release locally:** From the merged main commit, run the [local release command](local-release.md). It regenerates provenance, verifies the packaged app and complete artifact set, then publishes. No push triggers an automatic release.
 
 ## Local work
 
@@ -38,7 +35,7 @@ pnpm prepare:game build/game cache/upstream-candidate
 node scripts/verify-game.ts
 ```
 
-Inspect and validate the candidate before promotion. `promote-upstream.ts` requires its validated digest; the scheduled workflow supplies the digest from the completed platform validation. Do not hand-edit generated snapshot files.
+Inspect and validate the candidate before promotion. `promote-upstream.ts` requires its validated digest; use the digest printed by the candidate validation, and retain that evidence with the PR. Do not hand-edit generated snapshot files.
 
 ## Verification and limits
 
@@ -48,7 +45,7 @@ The native fullscreen smoke check installs boot observers before reloading. If t
 
 On macOS, an actual process sandbox denying network access made the previous downloader fail and allowed the new offline preparation to generate and verify all 3,022 payload files. A portable fetch-denial regression checks ordinary preparation and planning, and a failed-sync regression retains its previous candidate. Tests also reject corrupt bytes, duplicate/traversal paths, symlinks, mismatched identities and a candidate changed after validation. A Git probe verifies byte preservation even with automatic CRLF conversion enabled.
 
-This proves the checked snapshot and known asset families, not every future upstream resource scheme or physical device. The scheduled workflow's live no-op/update behavior and the final published assets require separate GitHub readback.
+This proves the checked snapshot and known asset families, not every future upstream resource scheme or physical device. The scheduled reporter and final published assets require separate GitHub readback.
 
 ### Native map input compatibility
 

@@ -10,7 +10,7 @@ The reporter finds the latest issue with the managed markers whose author is the
 
 The workflow uses the [GraphQL repository issue connection](https://docs.github.com/en/graphql/reference/repos#repository) for discovery and the [REST issue API](https://docs.github.com/en/rest/issues/issues) to read the selected issue directly before deciding whether to edit, close, or create. Ordinary edits send only the body, so an edit cannot reopen an issue closed after the read. The reporter sends one create request per run. If the outcome is uncertain, check the repository for the new issue before manually retrying.
 
-The workflow runs daily at 01:41 UTC (09:41 Asia/Taipei) and supports manual dispatch on main. A concurrency group serializes workflow invocations. The job has `contents: read` and `issues: write`. Upstream discovery parses JavaScript syntax without executing downloaded modules. Reporting a pending update is a successful check. The separate manual snapshot-sync workflow owns acquisition, resource review, and publication.
+The workflow runs daily at 01:41 UTC (09:41 Asia/Taipei) and supports manual dispatch on main. A concurrency group serializes workflow invocations. The job has `contents: read` and `issues: write`. Upstream discovery parses JavaScript syntax without executing downloaded modules. Reporting a pending update is a successful check. The maintainer performs acquisition, resource review and publication through the [local release procedure](local-release.md); Actions does not build or publish binaries.
 
 ## Real Actions evidence
 

@@ -22,7 +22,7 @@ a generated output of acquisition, preparation, verification or promotion.
   inline platform SVGs and decodes all five computed CSS backgrounds. Network failures remain
   fatal; retries and missing-image reporting are not suppressed.
 
-The daily version check reports builds through the [upstream version issue workflow](upstream-version-issues.md). The separate manual sync deliberately holds upstream acquisition for dependency review.
+The daily version check reports builds through the [upstream version issue workflow](upstream-version-issues.md). Local synchronization deliberately holds upstream acquisition for dependency review.
 Identity preflight reports a future upstream build as `review-required`, with
 `changed=true` and `eligible=false`, and records the accepted and detected versions
 in the workflow summary. Acquisition, validation and publication are skipped
@@ -89,9 +89,9 @@ profile. Online-only profile content is unavailable in the local sandbox and
 is not covered by this observation. These are bounded current-build checks,
 not a guarantee about every future screen or remotely populated social state.
 
-## Linux native CI setup
+## Historical Linux native CI setup
 
-Both Linux window-manager setup steps call `e2e/install-linux-desktop.sh`.
+Before local publication replaced hosted builds, both Linux window-manager setup steps called `e2e/install-linux-desktop.sh`.
 The GitHub runner mirror list was observed retrying Azure Ubuntu indexes for
 several minutes before official-archive failover. A related
 [runner image report](https://github.com/actions/runner-images/issues/15040)

@@ -1,5 +1,12 @@
 # pokebonk-offline-builder
 
+## 0.0.26
+
+### Patch Changes
+
+- Build, validate and publish native releases locally. Keep Actions limited to upstream update reporting, preserve Android signing compatibility, and bound investigation of unreproduced historical failures.
+- Update the reviewed offline snapshot to PokéBonk 0.9.24, including upstream's fixed Swinub experience rewards.
+
 ## 0.0.25
 
 ### Patch Changes

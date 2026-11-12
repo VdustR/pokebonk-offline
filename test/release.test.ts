@@ -22,7 +22,7 @@ test('missing releases build, matching published releases skip, compatible draft
   assert.equal(releaseRequired(undefined,info),true);
   assert.equal(releaseRequired(published,info),false);
   assert.equal(releaseRequired({...published,draft:true},info),true);
-  assert.throws(()=>releaseRequired({...published,draft:true},{...info,builder:'c'.repeat(40)}),/original CI run/);
+  assert.throws(()=>releaseRequired({...published,draft:true},{...info,builder:'c'.repeat(40)}),/original source commit/);
 });
 test('changed packaged source without a version bump and invalid release state stop publication',()=>{
   assert.throws(()=>releaseRequired(published,{...info,sourceDigest:'c'.repeat(64)}),/version bump/);
