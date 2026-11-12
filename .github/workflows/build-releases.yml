@@ -1,69 +1,84 @@
-name: Offline apps
-
+name: Native storage backend metrics capture
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
+  actions: read
 concurrency:
-  group: offline-${{ github.event.pull_request.number || 'release' }}
+  group: storage-backend-metrics-diagnostic
   cancel-in-progress: false
-
 jobs:
-  validate:
-    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
-    uses: ./.github/workflows/build-game.yml
-    with:
-      publish: false
-
-  build:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/build-game.yml
-    with:
-      publish: true
-    secrets:
-      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-
-  release:
-    needs: build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.build.outputs.changed == 'true'
+  probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
         with:
-          path: artifacts
-      - name: Publish complete release
+          version: 10.33.2
+      - name: Install version and inspection tools
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Plan vendored release
+        id: identity
         env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.build.outputs.tag }}
-          TITLE: ${{ needs.build.outputs.title }}
+          POKEBONK_PUBLISH: 'false'
+        run: node scripts/check-update.ts vendor/pokebonk
+      - name: Install native desktop test window manager
+        timeout-minutes: 6
+        run: bash e2e/install-linux-desktop.sh
+      - name: Validate builder
+        run: |
+          pnpm exec install-electron
+          pnpm typecheck
+          pnpm test:types
+          pnpm test
+      - name: Prepare and verify offline game
+        env:
+          EXPECTED_BUILD: ${{ steps.identity.outputs.build }}
+        run: |
+          pnpm build
+          node --import ./test/no-upstream-network.ts scripts/prepare-game.ts build/game vendor/pokebonk
+          node scripts/verify-game.ts
+      - name: Verify the complete native desktop prefix
         run: |
           set -euo pipefail
-          mkdir release
-          cp artifacts/desktop-*/* artifacts/android/*.apk release/
-          test "$(find release -type f | wc -l)" -eq 5
-          node scripts/release-notes.ts artifacts/game/offline-build.json notes.md release/release-info.json
-          (cd release && sha256sum * > SHA256SUMS.txt && sha256sum --check SHA256SUMS.txt)
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft > existing.txt 2>/dev/null; then
-            test "$(cat existing.txt)" = true
-            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber release/*
-          else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "$TITLE" --notes-file notes.md release/*
-          fi
-          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" -eq 7
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          xvfb-run -a node e2e/external-links.ts
+          bash e2e/with-linux-desktop.sh pnpm repro:window-lifecycle
+          bash e2e/with-linux-desktop.sh pnpm repro:fullscreen
+          xvfb-run -a pnpm repro:pointer-lock
+          bash e2e/with-linux-desktop.sh node e2e/fullscreen-game.ts
+          xvfb-run -a node e2e/appearance-readiness.ts
+          xvfb-run -a pnpm e2e:electron
+      - name: Print compact failure evidence after the test
+        if: always()
+        run: |
+          python3 - <<'PY_SUMMARY'
+          import json
+          from pathlib import Path
+          p=Path('evidence/electron-run-save-failure.json')
+          if p.exists():
+           x=json.loads(p.read_text());out={'kind':x['kind']}
+           for side in ['before','after']:
+            v=x[side];profile=json.loads(v['profile']) if v['profile'] else None
+            out[side]={'bytes':{k:len(value.encode()) if isinstance(value,str) else None for k,value in v.items()},'created':profile.get('created') if profile else None,'runs':len(profile.get('runs',[])) if profile else None,'counters':profile.get('counters') if profile else None}
+           print('BROWSER_STORAGE_FAILURE',json.dumps(out))
+          native=Path('evidence/electron-storage-failure.json')
+          if native.exists():
+           data=json.loads(native.read_text());data['error']=str(data.get('error',''))[:500];print('NATIVE_STORAGE_FAILURE',json.dumps(data))
+          PY_SUMMARY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        timeout-minutes: 2
+        with:
+          name: storage-backend-metrics-${{ matrix.attempt }}
+          path: evidence/
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 6
