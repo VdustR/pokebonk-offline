@@ -32,3 +32,13 @@ test('missing, ambiguous, duplicate or unsafe item catalogs fail explicitly',()=
 test('passive relic catalogs do not masquerade as held items',()=>{
   assert.deepEqual(inspectItemIcons(config+"const relics=[{key:'r-comet',mods:[],passive:'Comet'}];",data),inspectItemIcons(config,data));
 });
+
+test('priced species appearances do not masquerade as the item shop',()=>{
+  const source=config+"const mythic=[{key:'pharaoh',price:400000,species:[4,5,6],mats:[]}];";
+  assert.deepEqual(inspectItemIcons(source,data),inspectItemIcons(config,data));
+});
+
+test('preparation-only items require their own icon even without an items JSON row',()=>{
+  const source=config+"const preparations=[{id:'rare-candy',desc:'Level up'},{id:'new-preparation',desc:'Future'}];";
+  assert.ok(inspectItemIcons(source,data).includes('assets/items/new-preparation.png'));
+});

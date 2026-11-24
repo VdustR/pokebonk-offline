@@ -1,3 +1,4 @@
+import {inspectModularIcons} from '../scripts/modular-resources.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -15,6 +16,6 @@ test('release category icons include indirect icons and catalog additions',()=>{
 test('pinned release notes have every category icon in the snapshot',async()=>{
   const manifest=await readSnapshotManifest();
   const modules=gameModules(new Map(await Promise.all(manifest.files.filter(file=>file.name.endsWith('.js')).map(async file=>[file.name,await readFile('vendor/pokebonk/game/'+file.name)] as const))));
-  const icons=inspectReleaseIcons(modules.menus.source);
+  const icons=(modules.graph?inspectModularIcons(modules.graph).releaseIcons:inspectReleaseIcons(modules.menus.source));
   for(const icon of icons)await readFile('vendor/pokebonk/game/'+icon);
 });

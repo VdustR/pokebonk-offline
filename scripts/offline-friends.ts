@@ -1,3 +1,4 @@
+import type {AnyNode} from 'acorn';
 import {ast,nodes,nodesOf,one,literal,nameOf,maybeName,requireNode,edits} from './source.ts';
 
 const copy = {
@@ -14,11 +15,15 @@ const copy = {
 
 // Keep the upstream online route intact. Resolve its existing screen, DOM and
 // icon helpers semantically so minified binding changes fail closed.
+export function offlineFriendsRoutes(tree:AnyNode) {
+  return nodesOf(tree,'FunctionDeclaration',fn=>
+    nodesOf(fn.body,'CallExpression',call=>call.callee.type==='MemberExpression'&&maybeName(call.callee.property)==='friends').length>0 &&
+    nodes(fn.body,node=>literal(node)==='fr-list').length>0);
+}
+
 export function patchOfflineFriends(source:string):string {
   const tree=ast(source);
-  const route=one(nodesOf(tree,'FunctionDeclaration',fn=>
-    nodesOf(fn.body,'CallExpression',call=>call.callee.type==='MemberExpression'&&maybeName(call.callee.property)==='friends').length>0 &&
-    nodes(fn.body,node=>literal(node)==='fr-list').length>0), 'friends route');
+  const route=one(offlineFriendsRoutes(tree),'friends route');
   const app=nameOf(requireNode(route.params[0],'Identifier'));
   const back=nameOf(requireNode(route.params[1],'AssignmentPattern').left);
   const screens=nodesOf(route.body,'CallExpression',call=>literal(call.arguments[1])==='fr'&&call.arguments.length===7);

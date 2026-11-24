@@ -1,8 +1,9 @@
+import type {graphCatalogs} from './graph-catalogs.ts';
 import {configContext,one} from './source.ts';
 import {objectArray,record,text} from '../types/data.ts';
 
-export function inspectMutationAssets(config:string) {
-  const {values}=configContext(config);
+export function inspectMutationAssets(config:string,context?:ReturnType<typeof graphCatalogs>) {
+  const {values}=context??configContext(config);
   const catalogs=Object.values(values).filter(objectArray).filter(entries=>
     entries.some(entry=>'prize' in entry)&&entries.every(entry=>'rules' in entry&&'tier' in entry));
   // Generation-specific arrays are also exposed alongside the combined catalog.

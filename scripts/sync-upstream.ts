@@ -1,8 +1,10 @@
+import {inspectModularGame} from './modular-game.ts';
+import {inspectModularFrames,inspectModularIcons,inspectModularAssets} from './modular-resources.ts';
 import {treasureAssetPaths} from './treasure-catalog.ts';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { ast, nodes, nodesOf, literal, maybeName, nameOf, requireNode } from './source.ts';
+import { ast, nodes, nodesOf, one, literal, maybeName, nameOf, requireNode } from './source.ts';
 import { inspectGame } from './patch-game.ts';
 import {gameModules} from './game-modules.ts';
 import {inspectStyleFrameCatalog} from './optional-look-frames.ts';
@@ -88,6 +90,7 @@ console.log(`Collecting upstream ${buildId}`);
 // Follow Vite's module graph, CSS URLs, and HTML assets, including lazy language modules.
 const pending = new Set<string>();
 function discover(text: string, parent: string) {
+  if(parent.endsWith('.js'))for(const node of [...nodesOf(ast(text),'ImportDeclaration'),...nodesOf(ast(text),'ImportExpression')]){const value=literal(node.source);if(typeof value==='string'&&value.endsWith('.json')){const url=new URL(value,new URL(parent,origin));if(url.origin===origin)pending.add(url.pathname);}}
   const pattern = /["'`(]((?:\.?\.?\/|\/assets\/|\/icons\/)[A-Za-z0-9_./-]+\.(?:js|css|png|svg|webp|woff2?|ico|webmanifest))(?:["'`)\s?])/g;
   for (const match of text.matchAll(pattern)) {
     const url = new URL(textValue(match[1]), new URL(parent, origin));
@@ -103,8 +106,9 @@ for (;;) {
   for(const {key,data} of downloaded)if (/\.(js|css|webmanifest)$/.test(key)) discover(data.toString(), key);
 }
 const modules=gameModules(files),main=modules.main.source,config=modules.config.source,menus=modules.menus.source;
-const info = inspectGame(main, config,menus);
-const version = versionForBuild(info.configTree,buildId);
+const modular=modules.graph?inspectModularGame(modules.graph,modules.main,modules.menus,modules.config):undefined;
+const info = modular??inspectGame(main, config,menus);
+const version = modules.graph?one([...new Set(modules.graph.modules.map(module=>versionForBuild(module.tree,buildId)).filter(version=>version!==undefined))],'snapshot version'):versionForBuild(info.configTree,buildId);
 if (!version) throw new Error('Game/config build mismatch');
 const resourceContract=await readResourceContract();
 // Compare every input after collection too: data catalogs are fetched below.
@@ -146,19 +150,20 @@ for (const id of species) {
   if (isRecord(sprite) && sprite['fallback']) add('assets/' + textValue(sprite['fallback']));
 }
 for(const key of inspectAnimatedSprites(sprites))add(key);
-const itemIcons=inspectItemIcons(config,itemData);
+const itemIcons=inspectItemIcons(config,itemData,modular?.assetContext);
 const requiredItems=new Set(itemIcons);
 for(const item of Object.values(itemData))if(isRecord(item)&&item['icon']) {
   const key='assets/'+textValue(item['icon']);
   add(key,!requiredItems.has(key));
 }
 for(const key of itemIcons)add(key);
-for(const key of inspectMutationAssets(config))add(key);
-for(const key of treasureAssetPaths(config))add(key);
+for(const key of inspectMutationAssets(config,modular?.cosmeticContext))add(key);
+if(modular)for(const key of inspectModularAssets(modular.graph,modular.assetContext.values,JSON.parse(contents('data/formsprites.json'))))add(key);
+for(const key of treasureAssetPaths(modular?.cosmetics.source??config,modular?.cosmeticContext))add(key);
 for (const region of Object.keys(info.versions).filter(key => key.startsWith('env/'))) {
   for (const name of region === 'env/common' ? ['atlas.json','atlas.png'] : ['atlas.json','atlas.png','ground.png','cliff.png','path.png']) add(`assets/${region}/${name}`);
 }
-const allTrees = [ast(main), ast(config),...(menus===main?[]:[info.tree])];
+const allTrees = modules.graph?modules.graph.modules.map(module=>module.tree):[ast(main), ast(config),...(menus===main?[]:[info.tree])];
 const strings = allTrees.flatMap(tree => nodes(tree, n => typeof literal(n) === 'string').map(literal).filter((value): value is string => typeof value === 'string'));
 for (const value of strings) {
   if (/^(?:tower|halloween|desert|glacier|coast|ruins?|storm|frost|sanct)_[a-z_]+$/.test(value)) add(`assets/models/${value}.glb`, true);
@@ -172,18 +177,20 @@ for (const value of strings) {
 // Catalog-driven cosmetics and every literal icon/model call. Missing candidates are
 // recorded; gameplay-required atlas, sprite, item and data files are mandatory above.
 for (const value of Object.values(info.values)) if (objectArray(value)) for (const entry of value) {
-  if (entry['id'] && entry['how'] && !entry['kind'] && typeof entry['id'] === 'string') {
+  if (entry['id'] && entry['how'] && !entry['kind'] && typeof entry['id'] === 'string' && /^[\w-]+$/.test(entry['id'])) {
     for (const dir of ['ui/avatars','ui/frames','ui/clan/sym','ui/clan/deco']) add(`assets/${dir}/${entry['id']}.png`, true);
   }
 }
-for(const style of inspectStyleFrameCatalog(config,menus,{config:modules.config.name,menus:modules.menus.name}))add(`assets/ui/frames/look-${style}.png`);
-const {iconFunction,appIconFunction,statusIcons,reactionIcons}=inspectIconCatalogs(main,config,menus);
-for(const key of [...statusIcons,...reactionIcons,...inspectReleaseIcons(menus)])add(key);
+for(const style of (modules.graph?inspectModularFrames(modules.graph,modules.menus):inspectStyleFrameCatalog(config,menus,{config:modules.config.name,menus:modules.menus.name})))add(`assets/ui/frames/look-${style}.png`);
+const graphIcons=modules.graph?inspectModularIcons(modules.graph):undefined;
+const legacyIcons=graphIcons?undefined:inspectIconCatalogs(main,config,menus);
+const {statusIcons,reactionIcons}=graphIcons??inspectIconCatalogs(main,config,menus);
+for(const key of [...statusIcons,...reactionIcons,...(graphIcons?.goalIcons??[]),...(graphIcons?.releaseIcons??inspectReleaseIcons(menus))])add(key);
 for (const tree of allTrees) {
   for (const call of nodesOf(tree, 'CallExpression')) {
     const method = call.callee.type === 'MemberExpression' ? maybeName(call.callee.property) : maybeName(call.callee);
     const words = nodes(call.arguments[0], n => typeof literal(n) === 'string').map(literal).filter((s): s is string => typeof s === 'string' && /^[\w-]+$/.test(s));
-    if (method === (tree===allTrees[0]?appIconFunction:iconFunction) && call.arguments[0]?.type !== 'BinaryExpression') words.forEach(s => add(`assets/ui/icons/${s}.png`, true));
+    if ((graphIcons?graphIcons.aliases.get(modules.graph?.modules.find(module=>module.tree===tree)?.name??'')?.includes(method??''):method===(tree===allTrees[0]?legacyIcons?.appIconFunction:legacyIcons?.iconFunction)) && call.arguments[0]?.type !== 'BinaryExpression') words.forEach(s => add(`assets/ui/icons/${s}.png`, true));
     if (method && ['model','place','bu','xu'].includes(method)) words.forEach(s => add(`assets/models/${s}.glb`, true));
   }
   for (const property of nodesOf(tree, 'Property', n => ['model','shrine','portal','gate'].includes(maybeName(n.key) ?? ''))) {
@@ -192,12 +199,12 @@ for (const tree of allTrees) {
   }
 }
 // Calls through indirect maps store model names as [name, size].
-for (const node of [...new Set([info.tree,info.appTree])].flatMap(tree=>nodesOf(tree, 'ArrayExpression', n => n.elements.length === 2))) {
+for (const node of (modular?[]:[...new Set([info.tree,info.appTree])]).flatMap(tree=>nodesOf(tree, 'ArrayExpression', n => n.elements.length === 2))) {
   const value = literal(node.elements[0]);
   if (typeof value === 'string' && /^[\w-]+$/.test(value) && typeof literal(node.elements[1]) === 'number') add(`assets/models/${value}.glb`, true);
 }
 for (const name of ['battle1','battle2','battle3','battle4','boss','menu','halloween-menu','halloween-battle','halloween-boss']) add(`assets/music/${name}.ogg`, true);
-for (const declaration of [...new Set([info.tree,info.appTree])].flatMap(tree=>nodesOf(tree, 'VariableDeclarator', n => n.init?.type === 'ObjectExpression'))) {
+for (const declaration of (modular?[]:[...new Set([info.tree,info.appTree])]).flatMap(tree=>nodesOf(tree, 'VariableDeclarator', n => n.init?.type === 'ObjectExpression'))) {
   const properties = requireNode(declaration.init, 'ObjectExpression').properties.filter(p => p.type === 'Property');
   if (properties.some(p => maybeName(p.key) === 'menu') && properties.some(p => maybeName(p.key) === 'ingame1')) {
     for (const property of properties) add(`assets/music/${nameOf(property.key)}.ogg`);

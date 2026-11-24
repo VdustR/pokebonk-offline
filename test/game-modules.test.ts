@@ -22,3 +22,13 @@ test('missing, ambiguous and disconnected profile modules reject',()=>{
   assert.throws(()=>gameModules(files([...base,['menus.js',profile]])),/application menu import/);
   assert.throws(()=>gameModules(files([...base,['menus.js',profile],['duplicate.js',profile]])),/profile module/);
 });
+
+test('named boot instances identify split modules without an App export',()=>{
+  const entries:[string,string][]=[['assets/app.js',"import{menu}from './menu.js';const app=new Shell;await app.boot();"],['assets/menu.js','class Meta{claimable(){}}export{Meta as menu};'],['assets/data.js',config]];
+  const result=gameModules(files(entries));
+  assert.equal(result.main.name,'assets/app.js');
+  assert.equal(result.menus.name,'assets/menu.js');
+  assert.equal(result.config.name,'assets/data.js');
+  assert.ok(result.graph);
+  assert.throws(()=>gameModules(files([...entries,['assets/other.js','const other=new Shell;await other.boot();']])),/application module/);
+});

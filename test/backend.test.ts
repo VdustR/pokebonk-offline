@@ -204,3 +204,14 @@ test('Johto profiles unlock their starter and forms while preserving an existing
     assert.equal(bad.get('pokebonk.local.profile.v1'),raw);
   }
 });
+
+test('offline event boards satisfy the rush screen without inventing rankings or writing progress',async()=>{
+  const storage=new Map<string,string>(),api=backend(storage);await api.loadProfile();const before=[...storage];
+  const method:unknown=Reflect.get(api,'eventView');assert.equal(typeof method,'function');if(typeof method!=='function')throw new Error('Missing event view');
+  const view=record(await method());
+  for(const key of ['board','week','clans']){const board=record(view[key]);assert.ok(Array.isArray(board['entries']));assert.equal(board['entries'].length,0);assert.equal(board['me'],null);}
+  assert.equal(record(view['board'])['players'],0);assert.equal(record(view['clans'])['clans'],0);
+  assert.deepEqual([...storage],before);
+  const unavailable:unknown=Reflect.get(api,'claimOnlineOnly');if(typeof unavailable!=='function')throw new Error('Expected rejecting online fallback');
+  await assert.rejects(unavailable(),/online feature/);
+});

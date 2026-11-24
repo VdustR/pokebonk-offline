@@ -46,7 +46,7 @@ test('new concatenated icon families require explicit coverage',()=>{
 test('payload verification rejects a catalog omission despite a consistent manifest',async()=>{
   const root=await mkdtemp(path.join(os.tmpdir(),'pokebonk-icon-catalog-'));
   const png=Buffer.from([137,80,78,71,13,10,26,10]);
-  const metadata={upstreamBuild:'fixture',upstreamVersion:'1.0.0',offlineVersion:'0.0.1',sourceDigest:'a'.repeat(64),variant:'unlock-all',league:1,lab:1,items:1,achievements:1,medals:1,medalRank:1,statusIcons:['assets/ui/icons/st-poison.png'],reactionIcons:['assets/ui/icons/r-gg.png','assets/ui/icons/r-love.png'],itemIcons:['assets/items/enigma-berry.png','assets/items/poke-ball.png'],builder:'fixture'};
+  const metadata={treasures:[{id:'fire',starter:4,series:1,prizes:['grand'],cosmetics:[]}],mythicCosmetics:[],upstreamBuild:'fixture',upstreamVersion:'1.0.0',offlineVersion:'0.0.1',sourceDigest:'a'.repeat(64),variant:'unlock-all',league:1,lab:1,items:1,achievements:1,medals:1,medalRank:1,statusIcons:['assets/ui/icons/st-poison.png'],reactionIcons:['assets/ui/icons/r-gg.png','assets/ui/icons/r-love.png'],itemIcons:['assets/items/enigma-berry.png','assets/items/poke-ball.png'],builder:'fixture'};
   const contract=parseResourceContract({schemaVersion:1,upstreamBuild:'fixture',inputs:[{name:'main.js',sha256:createHash('sha256').update(main).digest('hex')}],required:['main.js']});
   try {
     const write=async(omit:boolean,invalid:boolean,target='assets/ui/icons/r-love.png')=>{

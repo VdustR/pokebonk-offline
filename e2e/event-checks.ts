@@ -7,17 +7,21 @@ export async function checkEventAssets(page:Page) {
   // required assets even after their event has ended.
   if(!await card.count())return;
   await card.click();
-  const tabs=page.locator('.ev-tabs .pill');
+  await page.locator('.br-frame,.ev-scr').first().waitFor({state:'visible'});
+  const rush=await page.locator('.br-frame').count()>0;
+  const tabs=page.locator(rush?'.br-nav button':'.ev-tabs .pill');
   await tabs.first().waitFor({state:'visible'});
   const count=await tabs.count();
   assert.ok(count>=4,'An event must expose its play, track, quests and prizes tabs');
   for(let index=0;index<count;index++) {
     await tabs.nth(index).click();
-    const images=page.locator('.ev-scr img');
+    if(rush)await page.waitForFunction(()=>Boolean(document.querySelector('.br-body')?.textContent?.trim()),null,{timeout:15000});
+    const images=page.locator(rush?'.br-frame img':'.ev-scr img');
     assert.ok(await images.count(),'Event image checks must exercise rendered images');
     await images.evaluateAll(async images=>{
       await Promise.all(images.map(async image=>{
         if(!(image instanceof HTMLImageElement))throw new Error('Invalid event image');
+        image.loading='eager';
         try {await image.decode();}
         catch(error){throw new Error('Undecoded event image: '+image.src,{cause:error});}
         if(!image.naturalWidth)throw new Error('Undecoded event image: '+image.src);

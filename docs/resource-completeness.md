@@ -182,3 +182,11 @@ for the new backend compatibility boundary.
 ## Inferred paths and declared frame capabilities
 
 A generated candidate URL does not establish that an asset should exist. The [0.9.13 review](upstream-0.9.13-review.md) corrects an earlier missing-PNG assumption: procedural look styles and PNG frame styles have different catalogs. Collection and preview patching share the actual frame-picker catalog, with verified module ownership. Declared frames remain mandatory; explicit overrides and other required resources keep their validation.
+
+## Reviewed modular season-four resources
+
+The [0.10.30 review](upstream-0.10.30-review.md) follows source ownership across
+the split application, profile, cosmetics, registry and audio modules. Finite
+form, badge, map, mythic, expedition, interactable-model and music catalogs
+remain mandatory independently of the downloaded manifest. Ordered catalog
+assembly is preserved; the initial roster declaration alone is incomplete.
