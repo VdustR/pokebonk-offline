@@ -97,7 +97,7 @@ smallest change. Recheck when Electron, navigation policy, URL validation, or th
 OS/browser configuration changes. Browser-launch observations do not prove that
 every external destination is reachable or that every OS has a configured browser.
 
-Release and upgrade use the normal all-platform CI pipeline. On this Mac, retain
+Release and upgrade follow the [local release procedure](local-release.md). On this Mac, retain
 a rollback app and a private local profile backup before replacing the installed
 app; keep the application name and storage origin unchanged. Verify the published
 archive checksum, ad-hoc signature, installed version, startup and a real external

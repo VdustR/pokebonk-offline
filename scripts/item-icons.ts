@@ -1,12 +1,13 @@
+import type {graphCatalogs} from './graph-catalogs.ts';
 import {configContext,one} from './source.ts';
 import {objectArray,record,text} from '../types/data.ts';
 
-export function inspectItemIcons(config:string,itemData:unknown) {
-  const {values}=configContext(config);
+export function inspectItemIcons(config:string,itemData:unknown,context?:ReturnType<typeof graphCatalogs>) {
+  const {values}=context??configContext(config);
   const catalogs=Object.values(values).filter(objectArray);
   const upgrades=one(catalogs.filter(items=>items.every(item=>'key' in item&&'stat' in item&&'per' in item)),'upgrade item catalog');
   const held=one(catalogs.filter(items=>items.every(item=>'key' in item&&'mods' in item&&!('passive' in item))),'held item catalog');
-  const shop=one(catalogs.filter(items=>items.every(item=>'key' in item&&'price' in item)),'shop item catalog');
+  const shop=one(catalogs.filter(items=>items.every(item=>'key' in item&&'price' in item&&!('species' in item))),'shop item catalog');
   const tokens=new Set<string>();
   for(const catalog of [upgrades,held,shop]) {
     const keys=new Set<string>();
@@ -21,6 +22,8 @@ export function inspectItemIcons(config:string,itemData:unknown) {
       tokens.add(token);
     }
   }
+  const preparations=catalogs.filter(items=>items.some(item=>item['id']==='rare-candy')&&items.every(item=>item['id']&&item['desc']));
+  if(context||preparations.length)for(const item of one(preparations,'preparation item catalog')){const id=text(item['id']);if(!/^[\w-]+$/.test(id))throw new Error('Invalid preparation item id');tokens.add(id);}
   const data=record(itemData,'item data');
   return [...new Set(['assets/items/poke-ball.png',...[...tokens].map(token=>{
     const entry=data[token]===undefined?undefined:record(data[token],'item data entry');

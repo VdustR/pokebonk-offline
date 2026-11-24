@@ -1,0 +1,1 @@
+export{V as showFriends}from"./menus-BF9PMbik-mwurkthy.js";

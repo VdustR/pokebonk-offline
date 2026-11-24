@@ -81,7 +81,7 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 ANDROID_FULL_GAMEPLAY=1 pnpm e2e:android <adb-serial>
 ```
 
-Release WebViews disable debugging. Do not replace an installed release APK with a debug APK: their signatures differ. The debug test validates unlocks, resource loading, local persistence, and optionally nine representative gameplay scenarios. Emulator evidence does not establish physical-device behavior.
+Release WebViews disable debugging. Do not replace an installed release APK with a debug APK: their signatures differ. The debug test validates unlocks, resource loading, local persistence, and optionally twelve representative gameplay scenarios. Emulator evidence does not establish physical-device behavior.
 
 ## Local releases
 

@@ -1,0 +1,1 @@
+export{_t as DESKTOP_APP,vt as androidAppVersion,yt as apkUrl,bt as desktopAppButton,xt as offerDesktopApp,St as osIcon,Ct as showDesktopApp}from"./menus-BF9PMbik-mwurkthy.js";

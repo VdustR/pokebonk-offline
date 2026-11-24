@@ -290,7 +290,8 @@ class LocalSandboxBackend implements LocalBackendContract {
   async clanStatus() { return { clan: null, mail: 0, requests: 0, pending: [] }; }
   async friends() { return { friends: [], incoming: [], outgoing: [] }; }
   async coopInvites() { return []; }
-  async eventView() { return { entries: [], quests: [], track: [], me: null }; }
+  async eventView() { return { entries: [], quests: [], track: [], me: null,
+    board:{entries:[],me:null,players:0},week:{entries:[],me:null,players:0},clans:{entries:[],me:null,clans:0} }; }
 }
 
 function createLocalSandboxBackend() {

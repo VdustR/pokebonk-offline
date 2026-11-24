@@ -4,4 +4,4 @@
 
 `snapshot.json` records the upstream build/version, every file's size and SHA-256, missing optional candidates, and the inventory digest. Do not hand-edit this generated snapshot. Offline preparation verifies it and applies builder changes only to generated output.
 
-`pnpm sync:upstream` stages a new candidate under `cache/upstream-candidate/`. The scheduled sync workflow validates it through the same platform checks as ordinary builds before a separate data-only job promotes and commits the exact validated digest. A failed acquisition or validation keeps the committed snapshot unchanged. No game account, save, credential, or private profile belongs here.
+`pnpm sync:upstream` stages a new candidate under `cache/upstream-candidate/`. Acquisition, validation and promotion run locally after the independent resource review. Promote only the exact validated digest through the [snapshot workflow](../docs/upstream-snapshots.md); the scheduled workflow reports versions and does not acquire or promote game files. A failed acquisition or validation keeps the committed snapshot unchanged. No game account, save, credential, or private profile belongs here.

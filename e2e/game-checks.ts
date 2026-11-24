@@ -42,21 +42,24 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   await page.getByRole('button',{name:/^成就 /}).waitFor({state:'visible',timeout:120000});
   await dismissMenuNotices(page);
   await page.getByRole('button',{name:'寶藏',exact:true}).click();
-  const treasureWheels=[{id:'fire',starter:4},{id:'grass',starter:1},{id:'water',starter:7},{id:'psychic',starter:63},{id:'ghost',starter:92},{id:'electric',starter:25}];
-  const treasureTabs=page.locator('.tz-tab');
+  const treasureWheels=[...metadata.treasures].sort((a,b)=>b.series-a.series);
+  assert.ok(treasureWheels.length>0,'Treasure acceptance needs the reviewed catalog');
+  const treasureTabs=page.locator('.tz-w');
   await treasureTabs.first().waitFor({state:'visible'});
   assert.equal(await treasureTabs.count(),treasureWheels.length);
-  assert.equal(await page.locator('.tz-tab.done').count(),treasureWheels.length);
+  assert.equal(await page.locator('.tz-w.done').count(),treasureWheels.length);
   for(let index=0;index<treasureWheels.length;index++) {
     await treasureTabs.nth(index).click();
-    assert.match(await treasureTabs.nth(index).innerText(),/10\/10/);
-    await page.locator('.tz-stage').evaluate(async stage=>{
+    const wheel=treasureWheels[index];assert.ok(wheel);
+    assert.match(await treasureTabs.nth(index).locator('.tz-w-bar').getAttribute('aria-label')??'',new RegExp(`${wheel.prizes.length}/${wheel.prizes.length}`));
+    await page.locator('.tz-stage').evaluate(async(stage,id)=>{
       const background=getComputedStyle(stage).getPropertyValue('--bg').trim();
       const url=/^url\(["']?(.*?)["']?\)$/.exec(background)?.[1];
       if(!url)throw new Error('Missing treasure background');
+      if(!new URL(url).pathname.endsWith(`/bg-${id}.png`))throw new Error('Wrong treasure background: '+url);
       const image=new Image();image.src=url;await image.decode();
       if(!image.naturalWidth)throw new Error('Undecoded treasure background');
-    });
+    },wheel.id);
   }
   await page.getByRole('button',{name:'Esc 返回',exact:true}).click();
   // The fresh-version badge pulses continuously, so its bounds never settle.
@@ -73,13 +76,11 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
   assert.equal(profile.itemsOwned.length,metadata.items);
   assert.equal(profile.stardust,1e9);
   assert.deepEqual(Object.keys(profile.treasures).sort(),treasureWheels.map(wheel=>wheel.id).sort());
-  for(const {id,starter} of treasureWheels) {
-    assert.equal(profile.treasures[id]?.won.length,10);
-    for(const tier of [3,4]) {
-      assert.ok(profile.cosmetics.includes(`tlook:${starter}:${tier}`));
-      assert.ok(profile.cosmetics.includes(`frame:tr-${id}-${tier-2}`));
-    }
+  for(const wheel of treasureWheels) {
+    assert.equal(profile.treasures[wheel.id]?.won.length,wheel.prizes.length);
+    for(const cosmetic of wheel.cosmetics)assert.ok(profile.cosmetics.includes(cosmetic),`Missing treasure cosmetic ${cosmetic}`);
   }
+  for(const cosmetic of metadata.mythicCosmetics)assert.ok(profile.cosmetics.includes(cosmetic),`Missing mythic cosmetic ${cosmetic}`);
   assert.equal(Object.keys(profile.quests).length,metadata.achievements);
   assert.equal(Object.values(profile.medals).filter(rank=>rank===metadata.medalRank).length,metadata.medals);
   for(const period of ['daily','weekly'] as const)assert.deepEqual(profile[period].claimed,[1,1,1,1]);
@@ -129,9 +130,14 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
     {species:158,biome:'cave',tier:1},
     {species:152,biome:'encina',tier:0},
     {species:249,biome:'iris',tier:1},
+    {species:160,biome:'furia',tier:0},
+    {species:248,biome:'plateado',tier:1},
+    {species:4,biome:'newisland',tier:0,mode:'bossrush'},
   ]) {
     assert.equal(await page.evaluate(config=>window.__pokebonkLocalApp.startRun({...config,boosts:[]}),config),true);
     await page.waitForFunction(()=>(window.__pokebonkLocalApp.run?.time ?? 0)>3,null,{timeout:90000});
+    assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.run?.biome.id),config.biome,'The requested map must actually be running');
+    if(config.mode)assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.run?.mode),config.mode,'The requested game mode must actually be running');
     assert.equal(await previewMesh.evaluate(mesh=>mesh.parent===null),true,'Character preview must be removed from the gameplay scene');
     if(pointerLock&&config.biome==='forest') {
       await focusPointerInput?.();

@@ -1,0 +1,1 @@
+var e=new URL(`ko-CeqraMfk-mwurkthy.json`,import.meta.url).href;export{e as default};
