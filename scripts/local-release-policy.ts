@@ -17,6 +17,15 @@ export function releaseFiles(info:ReleaseProvenance) {
   return [...desktopTargets.map(([platform,arch])=>`pokebonk-offline-${info.offlineVersion}-unlocked-${platform}-${arch}-game-${info.upstreamVersion}-${info.upstreamBuild}.${platform==='linux'?'tar.gz':'zip'}`),
     `pokebonk-offline-${info.offlineVersion}-unlocked-android.apk`,'release-info.json','SHA256SUMS.txt'];
 }
+export function signingSidecars(info:ReleaseProvenance) {
+  const apk=`pokebonk-offline-${info.offlineVersion}-unlocked-android.apk`;
+  return [apk+'.verification.json',apk+'.idsig'];
+}
+export function inspectReleaseDirectory(names:readonly string[],info:ReleaseProvenance,preparing:boolean) {
+  const required=releaseFiles(info),allowed=preparing?[...required,...signingSidecars(info)]:required;
+  if(new Set(names).size!==names.length||names.some(name=>!allowed.includes(name)))throw new Error('Unexpected file in owned release directory');
+  return names.length===required.length&&required.every(name=>names.includes(name));
+}
 // The migration floor exceeds the former 100000 + Actions run number.
 // Full-history commit counts increase on main, including upstream-only commits.
 export function androidVersionCode(commitCount:number) {

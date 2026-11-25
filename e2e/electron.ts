@@ -1,3 +1,5 @@
+import {nativeDiagnostics} from './native-diagnostics.ts';
+import {checkNativeSmoke} from './smoke-checks.ts';
 import {parseMetadata} from '../types/metadata.ts';
 import type {ElectronApplication} from 'playwright-core';
 import {_electron as electron} from 'playwright-core';
@@ -16,8 +18,11 @@ import {checkAppearanceAssets} from './appearance-checks.ts';
 import {checkVictoryRegression} from './victory.ts';
 import {checkStellarShop} from './stellar-checks.ts';
 import {readStorageDiagnostics} from './storage-diagnostics.ts';
-const game=path.resolve(process.argv[2]??'build/game');
-const executablePath=process.argv[3];
+const parameters=process.argv.slice(2),smoke=parameters.includes('--smoke'),positional=parameters.filter(value=>value!=='--smoke');
+if(positional.length>2||positional.some(value=>value.startsWith('--')))throw new Error('Usage: node e2e/electron.ts [game] [executable] [--smoke]');
+const game=path.resolve(positional[0]??'build/game');
+const executablePath=positional[1];
+const diagnostics=nativeDiagnostics();
 const userData=await mkdtemp(path.join(os.tmpdir(),'pokebonk-e2e-'));
 const metadata=parseMetadata(JSON.parse(await readFile(path.join(game,'offline-build.json'),'utf8')));
 const options={env:{...process.env,POKEBONK_GAME_DIR:game,POKEBONK_USER_DATA_DIR:userData},timeout:120000,args:executablePath?[]:['dist/desktop/main.js'],...(executablePath?{executablePath:path.resolve(executablePath)}:{})};
@@ -30,10 +35,16 @@ let beforeSaveStorage:Awaited<ReturnType<typeof readStorageDiagnostics>>|{captur
 let initialPaths:{pid:number;userData:string;sessionData:string;storage:string|null}|undefined;
 const closeReturns:{pid:number|undefined;exitCode:number|null;signalCode:NodeJS.Signals|null}[]=[];
 const errors: string[]=[],missing: {url:string;status:number}[]=[],external: string[]=[];
+  const observe=(page:import('playwright-core').Page)=>{
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('response',r=>{if(r.status()>=400){missing.push({url:r.url(),status:r.status()});console.error('Missing native resource:',r.status(),r.url());}});
+  page.on('request',r=>{if(/^(https?|wss?):/.test(r.url()))external.push(r.url());});
+  };
 try {
-  await checkVictoryRegression(game,executablePath,true);
+  if(!smoke)await checkVictoryRegression(game,executablePath,true);
   app=await electron.launch(options);
-  let page=await app.firstWindow();
+  let page=await app.firstWindow();observe(page);
+  await diagnostics.attach(app.context());
   if(executablePath)assert.equal(await app.evaluate(({app})=>app.getVersion()),metadata.offlineVersion,'Packaged native version must match offline release');
   const isolation=await app.evaluate(({app,BrowserWindow,session})=>{
     const window=BrowserWindow.getAllWindows()[0];
@@ -51,16 +62,13 @@ try {
   });
   initialPaths=isolation.paths;
   assert.deepEqual(isolation.preferences,{sandbox:true,nodeIntegration:false,contextIsolation:true,webSecurity:true});
-  const observe=(page:import('playwright-core').Page)=>{
-  page.on('pageerror',e=>errors.push(e.message));
-  page.on('response',r=>{if(r.status()>=400)missing.push({url:r.url(),status:r.status()});});
-  page.on('request',r=>{if(/^(https?|wss?):/.test(r.url()))external.push(r.url());});
-  };
-  observe(page);
   await app.evaluate(({app,BrowserWindow})=>{app.focus({steal:true});BrowserWindow.getAllWindows()[0]?.focus();});
   await page.waitForFunction(()=>document.hasFocus());
   await page.waitForFunction(()=>window.__pokebonkLocalApp?.meta?.profile?.localSandbox,null,{timeout:120000});
   await dismissMenuNotices(page);
+  const assertHealthy=()=>{assert.deepEqual(missing,[],'Missing native resource');assert.deepEqual(errors,[],'Native renderer error');};
+  if(smoke)await checkNativeSmoke(page,metadata,assertHealthy);
+  else {
   await checkOfflineFriends(page);
   await checkEventAssets(page);
   await page.locator('.dk-btn').click();
@@ -86,9 +94,12 @@ try {
   await page.keyboard.press('Escape');
   await checkStellarShop(page);
   await checkAppearanceAssets(page);
-  await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true,focusPointerInput:async()=>{if(!app)throw new Error('Missing Electron application');await focusNativeInput(app);}});
+  await checkGame(page,metadata,executablePath?'electron-packaged':'electron',{pointerLock:true,assertHealthy,focusPointerInput:async()=>{if(!app)throw new Error('Missing Electron application');await focusNativeInput(app);}});
   // Retain the original process's counters: after restart they cannot tell us
   // whether the writer had already fallen back to nonpersistent storage.
+  // Finish UI tracing before creating save data so trace flushing cannot
+  // lengthen the write-to-process-close interval under the durability test.
+  await diagnostics.finish(false);
   beforeSaveStorage=await readStorageDiagnostics(page).catch(error=>({captureError:String(error)}));
   const restart=async(ready=true)=>{
     if(!app)throw Error('Missing native application');
@@ -106,13 +117,15 @@ try {
   };
   page=await checkRunSaves(page,()=>restart(),async()=>{if(!app)throw Error('Missing native application');await focusNativeInput(app);});
   page=await checkCorruptRecovery(page,()=>restart(false));
+  }
   assert.deepEqual(external,[]);assert.deepEqual(missing,[]);assert.deepEqual(errors,[]);
   const gameRequests=[...external];
   assert.equal(await page.evaluate(()=>fetch('https://example.com/').then(()=>false,()=>true)),true,'Network must be blocked');
-  await writeFile('evidence/electron-network.json',JSON.stringify({gameRequests,missing,errors,networkBlocked:true},null,2));
-  console.log('Electron runtime, unlocks, persistence and network isolation passed.');
+  await writeFile(smoke?'evidence/electron-smoke-network.json':'evidence/electron-network.json',JSON.stringify({gameRequests,missing,errors,networkBlocked:true},null,2));
+  console.log(smoke?'Native smoke and network isolation passed.':'Electron runtime, unlocks, persistence and network isolation passed.');
 } catch(error) {
   failed=true;
+  await diagnostics.finish(true).catch(captureError=>console.error('Native trace capture failed:',captureError));
   try {
     if(app) {
       // Inspect only after failure: observing shutdown itself can change a race.
@@ -149,6 +162,7 @@ try {
   throw error;
 } finally {
   if(app) {
+    await diagnostics.finish(false);
     const nativeProcess=app.process();
     // The exit wait is failure-only and follows the original close sequence.
     const exited=failed?new Promise<void>(resolve=>{

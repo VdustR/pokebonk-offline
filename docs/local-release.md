@@ -24,17 +24,22 @@ desktop archives and one signed APK, plus `release-info.json` and `SHA256SUMS.tx
 
 1. Review upstream input changes using [the resource boundary](resource-completeness.md).
    Check identity with `node scripts/check-upstream.ts`, then run
-   `EXPECTED_BUILD=<reviewed-build> pnpm sync:upstream`. Prepare the candidate with
+   `EXPECTED_BUILD=<reviewed-build> pnpm sync:upstream`. Use focused source/catalog checks before native tests. Prepare the candidate with
    `node --import ./test/no-upstream-network.ts scripts/prepare-game.ts build/game cache/upstream-candidate`
    and run `node scripts/verify-game.ts`. Promote the verified digest with
    `node scripts/promote-upstream.ts cache/upstream-candidate vendor/pokebonk <validated-digest>`.
-2. Apply any required Changeset and commit the reviewed source. Use
+2. Apply any required Changeset and commit the reviewed source. For a focused
+   source-native check, run `pnpm build`, prepare/verify the candidate, then run
+   `node e2e/electron.ts build/game --smoke`. This uses a disposable profile and
+   checks the unlock counts plus Forest, Furia, Plateado and New Island Boss Rush.
+   It does not establish full packaged acceptance. Use
    `pnpm release:local prepare` to validate a PR before integration. This creates
    local artifacts and a receipt; it never publishes.
 3. Integrate the reviewed change and synchronize to the exact current main
    commit. Run `pnpm release:local`. It checks types, compiler probes and unit
-   tests, prepares and verifies the committed offline payload, builds every
-   package, and runs the packaged native Mac acceptance once. Disposable saves
+   tests, prepares and verifies the committed offline payload, runs the short
+   source-native smoke before cross-platform packaging, builds every package,
+   and runs the packaged native Mac acceptance. Disposable saves
    exercise manual/autosave restart, recovery, settlement and corrupt-data handling.
    When integration preserves the exact prepared commit (a normal fast-forward),
    the command reuses that receipt after checking source identity and all artifact
@@ -57,10 +62,55 @@ upload. API and malformed-response errors remain failures, not missing releases.
 
 Artifacts live in `release/<tag>-<commit-prefix>/`; the acceptance receipt,
 Android verification and publication readback live under the corresponding
-`cache/local-release/` directory. A failed preparation retains its evidence;
-move its owned output directory aside before a deliberate rerun. The receipt
-is written only after acceptance succeeds. A new source commit needs new
-provenance and a new prepared artifact set.
+`cache/local-release/` directory. A failed preparation retains its evidence. Resume the same command after diagnosing
+its failed stage; do not move or delete a valid journal merely to rerun everything.
+The final receipt is written only after complete acceptance. A new source commit
+needs new provenance and a new prepared artifact set.
+
+## Stage recovery and diagnostics
+
+`stages.json` in the source-specific work directory records successful stage
+products, SHA-256 hashes and execution/reuse/failure timings. Preparation is bound
+to the exact commit, source digest, Android version code, host, Node/pnpm and
+installed compiler/Electron/packager/Playwright versions, plus the selected JDK,
+Android SDK/platform and signing keystore identity. Passwords are never recorded.
+These are local trusted-workspace checkpoints, not transferable cross-commit proofs.
+
+The order is source checks, offline payload, native smoke, four desktop packages,
+signed Android APK, complete packaged native acceptance, then release metadata.
+On resumption, product bytes are checked before reuse. A missing or changed product
+reruns its stage and every later stage. A changed preparation identity invalidates
+all stages and retains the old journal as history. An incomplete stage has no
+success record and runs again. Partial directories with no journal, malformed
+journals, unexpected release filenames and unavailable inputs remain explicit
+failures. Do not fabricate a receipt or use a partial journal to publish.
+
+A single-writer lock at `cache/local-release/prepare.lock` protects the checkout's shared build directories across all source commits. A live or foreign
+owner is refused. An exited same-host owner can be recovered using its uniquely
+named owner file. An incomplete lock requires checking its owner before manual
+cleanup. Keep other worktrees and shared SDK/package caches intact.
+
+`[stage] started/passed/reused/failed` output includes elapsed milliseconds.
+A late native failure can therefore retry without rebuilding unchanged desktop
+archives or re-signing the APK. Complete receipts additionally verify all seven
+artifact hashes before reuse; publication still checks exact main, signing/version
+policy, provenance and public digests. `publish` resumes only a complete receipt.
+
+Native UI/gameplay checks record bounded focus, keyboard, visibility, pointer-lock and run-state
+events through context-level initialization, including across reloads. Failures
+retain `events.json` and a Playwright trace under a uniquely named `evidence/native-*`
+directory; traces from successful contexts are discarded. Tracing stops before
+creating save-test data. Save/restart checks keep their original write-to-close
+sequence and storage/cold-profile failure diagnostics. Unexpected fresh-run
+pauses report the run state immediately instead of consuming the entire startup
+timeout. Tests never automatically resume an unexpected pause.
+
+For runner changes, start with `node --test test/release-stages.test.ts` and
+`pnpm build && node e2e/diagnostics-repro.ts`. The latter uses a tiny disposable
+Electron fixture to check normal readiness, pause reporting, a deliberate missing
+resource and event collection across reload. Then use the real source smoke and
+one complete committed-source preparation for the affected native release path.
+Keep full acceptance and publication/device readbacks separate from these fixtures.
 
 The packaged Mac test uses the package's embedded game and a disposable profile.
 Windows, Linux, Intel Mac when it is not the host, and physical Android behavior

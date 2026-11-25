@@ -1,3 +1,4 @@
+import {waitForGameplay} from './gameplay-ready.ts';
 import type {Page} from 'playwright-core';
 import type {BuildMetadata} from '../types/metadata.ts';
 import assert from 'node:assert/strict';
@@ -26,7 +27,7 @@ export async function loadAchievementCards(page:Page,limit:number) {
   throw new Error('Achievement pagination did not finish');
 }
 
-export async function checkGame(page: Page,metadata: BuildMetadata,label: string,{gameplay=true,pointerLock=false,focusPointerInput}:{gameplay?:boolean;pointerLock?:boolean;focusPointerInput?:()=>Promise<void>}={}) {
+export async function checkGame(page: Page,metadata: BuildMetadata,label: string,{gameplay=true,pointerLock=false,focusPointerInput,assertHealthy}:{gameplay?:boolean;pointerLock?:boolean;focusPointerInput?:()=>Promise<void>;assertHealthy?:()=>void}={}) {
   await page.addInitScript(()=>{
     const key='pokebonk.local.profile.v1';
     const value: unknown=JSON.parse(localStorage.getItem(key)||'{}');
@@ -135,7 +136,8 @@ export async function checkGame(page: Page,metadata: BuildMetadata,label: string
     {species:4,biome:'newisland',tier:0,mode:'bossrush'},
   ]) {
     assert.equal(await page.evaluate(config=>window.__pokebonkLocalApp.startRun({...config,boosts:[]}),config),true);
-    await page.waitForFunction(()=>(window.__pokebonkLocalApp.run?.time ?? 0)>3,null,{timeout:90000});
+    await waitForGameplay(page);
+    assertHealthy?.();
     assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.run?.biome.id),config.biome,'The requested map must actually be running');
     if(config.mode)assert.equal(await page.evaluate(()=>window.__pokebonkLocalApp.run?.mode),config.mode,'The requested game mode must actually be running');
     assert.equal(await previewMesh.evaluate(mesh=>mesh.parent===null),true,'Character preview must be removed from the gameplay scene');
