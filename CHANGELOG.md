@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.28
+
+### Patch Changes
+
+- Resume verified local preparation stages after a failure, run native smoke checks before cross-platform packaging, retain reload-safe native diagnostics, and route repository agents through the upgrade skill.
+
 ## 0.0.27
 
 ### Patch Changes

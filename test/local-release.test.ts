@@ -1,9 +1,18 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {androidVersionCode,assertAndroidUpgrade,assertArtifacts,assertPublishSource,findRelease,parseReceipt,releaseFiles} from '../scripts/local-release-policy.ts';
+import {androidVersionCode,assertAndroidUpgrade,assertArtifacts,assertPublishSource,findRelease,parseReceipt,releaseFiles,signingSidecars,inspectReleaseDirectory} from '../scripts/local-release-policy.ts';
 import {parseProvenance} from '../types/release.ts';
 const info=parseProvenance({upstreamVersion:'0.9.24',offlineVersion:'0.0.26',upstreamBuild:'current',builder:'a'.repeat(40),sourceDigest:'b'.repeat(64),variant:'unlock-all'});
 const artifacts=releaseFiles(info).map(name=>({name,bytes:10,sha256:'c'.repeat(64)}));
+test('only preparation recognizes interrupted signing sidecars; public release still has seven files',()=>{
+  const names=releaseFiles(info),partial=[...names,...signingSidecars(info)];
+  assert.equal(inspectReleaseDirectory(names,info,false),true);
+  assert.equal(inspectReleaseDirectory(partial,info,true),false);
+  assert.equal(inspectReleaseDirectory(names.slice(1),info,true),false);
+  assert.throws(()=>inspectReleaseDirectory(partial,info,false),/Unexpected file/);
+  assert.throws(()=>inspectReleaseDirectory([...names,'notes.txt'],info,true),/Unexpected file/);
+  assert.throws(()=>inspectReleaseDirectory([...names,names[0]??''],info,true),/Unexpected file/);
+});
 test('release discovery finds an unfinished draft beyond the first page',()=>{
   const draft={id:123,tag_name:info.tag,draft:true,body:'retained provenance',assets:[]};
   const pages:Record<string,unknown>={
