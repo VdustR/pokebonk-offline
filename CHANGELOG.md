@@ -1,5 +1,11 @@
 # pokebonk-offline-builder
 
+## 0.0.29
+
+### Patch Changes
+
+- Keep upstream version discovery within its existing module budget by prioritizing static dependencies before queued lazy imports.
+
 ## 0.0.28
 
 ### Patch Changes

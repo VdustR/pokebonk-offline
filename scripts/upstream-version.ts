@@ -26,9 +26,11 @@ export async function discoverUpstream(request:(url:string)=>Promise<Response>=r
   const html=await get(origin+'/index.html?offline-check='+Date.now());
   const build=buildId(html.match(/name="pokebonk-build" content="([\w-]+)"/)?.[1]);
   const urls=[...html.matchAll(/(?:src|href)=["']([^"']+\.js)["']/g)].map(match=>new URL(match[1]??'',origin).href);
+  const dynamicUrls:string[]=[];
   const seen=new Set<string>();
-  while(urls.length) {
-    const url=urls.shift();if(!url||seen.has(url))continue;
+  // Drain eager dependencies before spending the shared budget on lazy branches.
+  while(urls.length||dynamicUrls.length) {
+    const url=urls.length?urls.shift():dynamicUrls.shift();if(!url||seen.has(url))continue;
     const parsed=new URL(url);
     if(parsed.origin!==origin||!/^\/assets\/[\w.-]+\.js$/.test(parsed.pathname))throw new Error('Unsupported upstream module URL');
     seen.add(url);if(seen.size>48)throw new Error('Upstream module graph exceeded limit');
@@ -39,7 +41,7 @@ export async function discoverUpstream(request:(url:string)=>Promise<Response>=r
       const target=literal(node.source);if(typeof target==='string')urls.push(new URL(target,url).href);
     }
     for(const node of nodesOf(tree,'ImportExpression')) {
-      const target=literal(node.source);if(typeof target==='string')urls.push(new URL(target,url).href);
+      const target=literal(node.source);if(typeof target==='string')dynamicUrls.push(new URL(target,url).href);
     }
   }
   throw new Error('No upstream version matches HTML build');
