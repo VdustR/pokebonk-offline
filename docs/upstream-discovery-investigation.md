@@ -1,6 +1,60 @@
 # Upstream discovery bound investigation
 
-## Disposition and scope
+## November 27 bounded traversal repair
+
+The current [discovery defect](https://github.com/VdustR/pokebonk-offline/issues/55)
+is reproducible on build **mwy9li0u**, version **0.10.37**. Unlike the November 21
+recovery below, this observation supports a traversal change. Discovery now
+drains queued static dependencies before visiting another dynamic import. Both
+queues retain the same global `seen` set, 48-module cap, same-origin asset path
+validation, response size checks and error propagation. Dynamic imports remain
+eligible when the static queue is empty; no filename is guessed or excluded.
+
+On November 27, 2026, the unchanged-source probe ran from 02:19:26 to 02:19:44
+UTC (10:19:26–10:19:44 Asia/Taipei), using Node 26.13.1 on macOS arm64 and
+[main source](https://github.com/VdustR/pokebonk-offline/commit/4b11cc28133c53d7ec45070c090e75ac9f7e74ae).
+It recorded raw response byte counts/hashes, HTML roots and parsed static/dynamic
+import edges without saving or executing upstream game sources. It failed after
+48 JavaScript modules and 21,393,442 response bytes including HTML. The HTML
+SHA-256 was `abeff470e522911a283e51e93e57cfe8e2ccb839a23d1e11244c09d8b195cb4d`.
+
+The boot entry queues 20 locale modules before the application entry. The
+application's static imports now lead through menus/services to
+`news-D27crYXi-mwy9li0u.js`; its own queued lazy imports precede that deeper
+static dependency in the original FIFO traversal. The pending queue places the
+news module after the 49th unique URL, outside the existing budget.
+A static-priority probe reached its exact HTML-build mapping at module 45,
+reading 21,498,951 bytes. HTML and all 44 shared module hashes matched between
+observations. The news module SHA-256 was
+`399b240ec029f2c0c76f7ac178ed98b86893124bb2d8844845f073d8a758ea70`.
+
+This is a bounded search strategy, not JavaScript execution order. [Static
+imports denote eager dependencies; dynamic imports can load conditionally or
+on demand](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import).
+Prioritizing the static closure avoids spending the remaining search budget on
+lazy branches before metadata already reachable through that closure. Raising
+the cap would enlarge the network budget; selecting a news filename would
+introduce a build-specific assumption. Neither is needed for this repair.
+
+The synthetic regression makes the original traversal exhaust its budget before
+a nested static mapping. A separate test keeps dynamic fallback working across
+static/dynamic duplicates and cycles; mixed static/dynamic chains must still
+reject before request 49. Existing 48th-node, size, unsupported-URL, HTTP and
+mapping ambiguity cases remain required. A replay built only from retained
+import/mapping metadata produced original failure, repaired success, reverted
+failure and repaired success again (48 / 45 / 48 / 45 fetched modules).
+The rerun below uses the repaired production function and reports the current
+visited prefix; upstream drift can change its result.
+
+The [November 26 failed check](https://github.com/VdustR/pokebonk-offline/actions/runs/45797474192)
+used the same source revision, but did not record its HTML build or graph. Its
+historical cause remains unknown; current recovery does not establish that
+cause. The [update tracker](https://github.com/VdustR/pokebonk-offline/issues/54)
+remains an unaccepted game-update record. This repair does not capture or accept
+an upstream snapshot, publish binaries, install devices or change vendor bytes.
+Arbitrary future graphs can still exceed the unchanged bound and fail visibly.
+
+## November 21 disposition and scope
 
 The [November 20 version check](https://github.com/VdustR/pokebonk-offline/actions/runs/44708452663) failed at the existing 48-module discovery bound. The [November 21 check](https://github.com/VdustR/pokebonk-offline/actions/runs/44886369586) succeeded on the same [main source revision](https://github.com/VdustR/pokebonk-offline/commit/98e42caa9e9fa488cf39272d32a5b55b8c36d5e9), detecting upstream **0.10.19**, build **mwpmhsgg**. Discovery has currently recovered without a source change. The historical graph and the cause of its different traversal remain unverified.
 

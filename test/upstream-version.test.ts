@@ -60,3 +60,45 @@ for(const advertised of [true,false])test(`discovery rejects an oversized module
       :new Response(' '.repeat(4*1024*1024+1));
   }),/Upstream module too large/);
 });
+
+test('static dependencies remain reachable when lazy branches would exhaust the budget',async()=>{
+  const sources=chain(1);
+  sources.set('/assets/entry-1.js',`import './app.js';${Array.from({length:46},(_,i)=>`import('./lazy-${i}.js');`).join('')}`);
+  sources.set('/assets/app.js',"import './metadata.js';");
+  sources.set('/assets/metadata.js',"const notes=[{build:'current',version:'0.10.37'}];");
+  for(let index=0;index<46;index++)sources.set(`/assets/lazy-${index}.js`,'export {};');
+  const {requests,request}=fixture(sources);
+  assert.deepEqual(await discoverUpstream(request),{build:'current',upstreamVersion:'0.10.37'});
+  assert.ok(requests.length<=49);
+});
+
+test('dynamic fallback shares static duplicate/cycle suppression and the global budget',async()=>{
+  const sources=chain(47,false);
+  sources.set('/assets/entry-1.js',"import './entry-2.js';import('./entry-2.js');");
+  sources.set('/assets/entry-47.js',"import './entry-1.js';import('./entry-1.js');import('./metadata.js');");
+  sources.set('/assets/metadata.js',"import './entry-47.js';const notes=[{build:'current',version:'0.10.37'}];");
+  const {requests,request}=fixture(sources);
+  assert.deepEqual(await discoverUpstream(request),{build:'current',upstreamVersion:'0.10.37'});
+  assert.equal(requests.length,49);
+  assert.equal(new Set(requests).size,49);
+});
+
+test('static and dynamic queues cannot each spend a separate module budget',async()=>{
+  const sources=chain(48,false);
+  sources.set('/assets/entry-24.js',"import('./entry-25.js');");
+  sources.set('/assets/entry-48.js',"import('./metadata.js');");
+  sources.set('/assets/metadata.js',"const notes=[{build:'current',version:'0.10.37'}];");
+  const {requests,request}=fixture(sources);
+  await assert.rejects(discoverUpstream(request),/Upstream module graph exceeded limit/);
+  assert.equal(requests.length,49);
+  assert.equal(requests.includes('/assets/metadata.js'),false);
+});
+
+for(const target of ['https://example.com/assets/module.js','/nested/module.js'])test(`static dependencies reject unsupported URLs before requesting ${target}`,async()=>{
+  const sources=chain(1);
+  sources.set('/assets/entry-1.js',`import '${target}';import('./metadata.js');`);
+  sources.set('/assets/metadata.js',"const notes=[{build:'current',version:'0.10.37'}];");
+  const {requests,request}=fixture(sources);
+  await assert.rejects(discoverUpstream(request),/Unsupported upstream module URL/);
+  assert.equal(requests.length,2);
+});
